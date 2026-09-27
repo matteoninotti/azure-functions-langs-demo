@@ -7,6 +7,15 @@
   --accent: #5aa9ff;
   --error: #ff8a80;
   --warn: #ffcc66;
+  --good: #4ade80;
+
+  /* Colori dei tre runtime: presi dai rispettivi marchi, cosi' la barra e il
+     logo in cima alla colonna dicono la stessa cosa. Il viola di .NET e'
+     schiarito rispetto al #512BD4 del logo, che su fondo scuro non si
+     distinguerebbe dal bordo. */
+  --c-python: #4b8bbe;
+  --c-dotnet: #8b5cf6;
+  --c-go: #00acd7;
 }
 
 * { box-sizing: border-box; }
@@ -19,7 +28,7 @@ body {
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-header, #controls, #status, .results, footer {
+header, #controls, #status, .legend, .results, footer {
   max-width: 1280px;
   margin-inline: auto;
 }
@@ -136,9 +145,54 @@ button:disabled { opacity: .45; cursor: progress; }
 #status.error { color: var(--error); }
 #status.warn { color: var(--warn); }
 
-.results { display: flex; flex-direction: column; gap: 2rem; }
+/* --- Legenda: i tre runtime, scritti una volta sola ------------------------ */
 
-.group { display: flex; flex-direction: column; gap: .8rem; }
+/* Sticky perche' con le immagini grandi un gruppo non sta in una schermata:
+   scorrendo, senza questa riga si perde di vista quale colonna e' quale. */
+.legend {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+  padding: .85rem 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 3px solid transparent;
+}
+
+.legend-item.python { border-bottom-color: var(--c-python); }
+.legend-item.dotnet { border-bottom-color: var(--c-dotnet); }
+.legend-item.go     { border-bottom-color: var(--c-go); }
+
+.logo { height: 44px; width: auto; display: block; }
+
+/* Python e' un marchio senza testo, quindi accanto ci va il nome scritto.
+   .NET e Go usano la versione TESTUALE del proprio logo, che il nome ce
+   l'ha gia' dentro: ripeterlo accanto sarebbe scritto due volte. Sono piu'
+   larghi e piu' bassi, cosi' i tre pesano visivamente uguale.
+
+   Il quadrato viola pieno di .NET e' scartato di proposito: accanto a Python
+   e Go, che non hanno sfondo, risalterebbe come se contasse di piu' (D153). */
+.logo-wide { height: 34px; }
+
+.legend-name { font: 700 1.3rem/1 system-ui; letter-spacing: -.01em; }
+
+/* --- Gruppi ---------------------------------------------------------------- */
+
+.results { display: flex; flex-direction: column; gap: 3rem; }
+
+.group { display: flex; flex-direction: column; gap: .9rem; }
 
 .group-title {
   margin: 0;
@@ -150,40 +204,209 @@ button:disabled { opacity: .45; cursor: progress; }
   border-bottom: 1px solid var(--line);
 }
 
-.row {
+/* A piramide: l'originale in cima, le frecce che si diramano, i tre risultati
+   sotto. La posizione dice da sola cosa e' entrato e cosa e' uscito, senza che
+   si debba leggere un'etichetta — che era il problema del layout in fila. */
+.stage { display: flex; flex-direction: column; align-items: center; }
+
+/* Larga ESATTAMENTE quanto una colonna, non di piu': le lenti confrontano i
+   pixel, e un originale mostrato piu' grande sembrerebbe piu' nitido per un
+   motivo che col resize non c'entra niente. */
+.card.source { width: calc((100% - 2.4rem) / 3); }
+
+.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; width: 100%; }
+
+/* --- Le frecce ------------------------------------------------------------- */
+
+.fan {
+  position: relative;
+  width: 100%;
+  height: 66px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.2rem;
+  grid-template-columns: repeat(3, 1fr);
 }
+
+.fan-stem {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 30px;
+  background: var(--line);
+  transform: translateX(-50%);
+}
+
+/* Da centro-colonna a centro-colonna: con tre colonne uguali sono il 16,667%
+   per lato, quindi la barra tocca esattamente i punti da cui scendono i rami. */
+.fan-bar {
+  position: absolute;
+  top: 30px;
+  left: 16.667%;
+  right: 16.667%;
+  height: 2px;
+  background: var(--line);
+}
+
+.fan-drop {
+  grid-column: var(--col);
+  justify-self: center;
+  align-self: start;
+  position: relative;
+  margin-top: 30px;
+  width: 2px;
+  height: 26px;
+  background: var(--line);
+}
+
+.fan-drop::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--line);
+}
+
+/* --- Card ------------------------------------------------------------------ */
 
 .card {
-  padding: 1.1rem;
+  padding: 1rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-.card.pending { opacity: .6; }
-
-/* L'originale ha un bordo diverso: affiancato a tre risultati che gli
-   somigliano molto, senza un segno visivo si confonde con loro. */
 .card.source { border-style: dashed; }
 .card.failed { border-color: var(--error); }
 
-.card h3 { margin: 0 0 .8rem; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+.card-tag {
+  margin: 0 0 .7rem;
+  font: 700 .95rem/1 system-ui;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+}
+
+.card.source .card-tag {
+  font: 700 .75rem/1 system-ui;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.card-meta { margin: .55rem 0 0; font-size: .85rem; color: var(--muted); }
+
+.saved { color: var(--good); font-weight: 600; }
 
 .runtime { font: 400 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
 
-.card img { width: 100%; height: auto; border-radius: 6px; background: #000; display: block; }
+/* --- Immagine e lente ------------------------------------------------------ */
 
-dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem .9rem; margin: .9rem 0 0; font-size: .9rem; }
-dt { color: var(--muted); }
-dd { margin: 0; }
+.shot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+
+.shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* background-size in PERCENTUALE e non in pixel: cosi' la lente inquadra la
+   stessa FRAZIONE di figura su tutte e quattro le immagini, a prescindere da
+   quanti pixel sorgente quella figura abbia. L'originale ne ha di piu' da
+   mettere in quello spazio e resta nitido; i risultati ne hanno meno e si
+   sgranano in blocchi — che e' esattamente cio' che il resize ha fatto.
+   `pixelated` toglie l'interpolazione del browser, che altrimenti li
+   ammorbidirebbe nascondendo il fenomeno. */
+.loupe {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .92);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .55);
+  background-image: var(--shot);
+  background-repeat: no-repeat;
+  background-size: 500%;
+  background-position: var(--lx, 50%) var(--ly, 50%);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* --- Il tempo: l'elemento che porta davvero l'informazione ----------------- */
+
+.ms { margin: .8rem 0 .45rem; font: 700 1.8rem/1 system-ui; letter-spacing: -.02em; }
+.ms small { font: 500 .85rem/1 system-ui; color: var(--muted); }
+
+.bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
+
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 6px;
+  transition: width .5s cubic-bezier(.22, .7, .3, 1);
+}
+
+.card.python .bar span { background: var(--c-python); }
+.card.dotnet .bar span { background: var(--c-dotnet); }
+.card.go     .bar span { background: var(--c-go); }
+
+/* --- Attesa e arrivo ------------------------------------------------------- */
+
+/* L'attesa si comunica in modo QUALITATIVO: lo shimmer pulsa finche' la
+   risposta non arriva, quindi su un cold start pulsa a lungo e la lentezza si
+   sente. Non scrive un numero, perche' il tempo a parete del browser contiene
+   rete e overhead di piattaforma — un numero diverso da quello sulla card. */
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.skeleton {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--line) 35%, var(--panel) 50%, var(--line) 65%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.card.pending { opacity: .75; }
+
+/* L'arrivo invece e' un'animazione a durata FISSA e uguale per i tre: dice
+   "e' atterrato", non "ci ha messo tanto". La durata la racconta la barra. */
+@keyframes land {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.card.landed { animation: land .45s cubic-bezier(.22, .7, .3, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.landed { animation: none; }
+  .bar span { transition: none; }
+  .skeleton { animation: none; }
+}
 
 .muted { color: var(--muted); }
 .error { color: var(--error); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
 
 footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
+
+@media (max-width: 900px) {
+  /* In colonna singola la piramide non ha piu' niente da disporre: le frecce
+     e la legenda spariscono, e il nome del runtime resta su ogni card. */
+  .legend { display: none; }
+  .fan { display: none; }
+  .row { grid-template-columns: 1fr; }
+  .card.source { width: 100%; margin-bottom: 1.2rem; }
+  .stage { gap: 0; }
+}
 
 @media (max-width: 760px) {
   body { padding: 1.25rem 1rem 2rem; }
@@ -195,8 +418,12 @@ footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
 }
 
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f6f7fa; --panel: #fff; --line: #dfe3ea; --text: #1a1d24; --muted: #626a7a; --accent: #1a6fd4; }
+  :root {
+    --bg: #f6f7fa; --panel: #fff; --line: #dfe3ea; --text: #1a1d24;
+    --muted: #626a7a; --accent: #1a6fd4; --good: #166534;
+    --c-python: #3776ab; --c-dotnet: #512bd4; --c-go: #007d9c;
+  }
   select, input { background: #fff; }
   button { color: #fff; }
-  .card img { background: #eee; }
+  .skeleton { background: linear-gradient(100deg, #e8ecf2 35%, #fff 50%, #e8ecf2 65%); background-size: 200% 100%; }
 }

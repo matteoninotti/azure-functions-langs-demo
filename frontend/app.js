@@ -23,6 +23,7 @@ const els = {
   run: document.getElementById('run'),
   status: document.getElementById('status'),
   results: document.getElementById('results'),
+  legend: document.getElementById('legend'),
 };
 
 const api = (backend, path) => `https://${backend.host}/api/${path}`;
@@ -199,50 +200,147 @@ async function runOne(backend, image, params) {
 
 // --- Rendering ---------------------------------------------------------------
 
+// Una "posa": l'immagine piu' la lente circolare che ne ingrandisce i pixel.
+//
+// La lente e' la parte che rende VISIBILE il resize invece di raccontarlo.
+// Tutte e quattro le lenti di un gruppo usano la stessa scala percentuale e la
+// stessa posizione, quindi inquadrano la STESSA porzione di figura: quella
+// dell'originale ha piu' pixel sorgente da mostrare su quello spazio e resta
+// nitida, quelle dei risultati ne hanno meno e si sgranano in blocchi.
+//
+// E' un confronto onesto solo perche' le quattro immagini sono mostrate anche
+// alla STESSA dimensione sullo schermo: per questo la card dell'originale e'
+// larga esattamente quanto una colonna e non di piu'. Mostrarla piu' grande la
+// farebbe sembrare piu' nitida per un motivo che non c'entra col resize.
+function shot(url, alt) {
+  const box = document.createElement('div');
+  box.className = 'shot';
+  box.style.setProperty('--shot', `url("${url}")`);
+
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = alt;
+
+  // L'aspect-ratio si prende dall'immagine vera appena arriva. Senza, il
+  // contenitore non combacia con la figura e la lente inquadrerebbe un punto
+  // diverso da quello su cui sta il cursore.
+  img.addEventListener('load', () => {
+    if (img.naturalWidth && img.naturalHeight) {
+      box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    }
+  });
+
+  const lens = document.createElement('span');
+  lens.className = 'loupe';
+  lens.setAttribute('aria-hidden', 'true');
+
+  box.append(img, lens);
+  return box;
+}
+
 function sourceCard(image) {
   const card = document.createElement('article');
   card.className = 'card source';
-  card.innerHTML = `
-    <h3>Originale <span class="runtime">sorgente</span></h3>
-    <img src="${escapeHtml(sourceUrl(image))}" alt="Immagine di partenza, prima del resize">
-    <dl>
-      <dt>Peso</dt><dd>${formatBytes(sourceBytes.get(image))}</dd>
-      <dt>Nota</dt><dd class="muted">Lo stesso file per i tre worker.</dd>
-    </dl>
-  `;
+
+  const tag = document.createElement('p');
+  tag.className = 'card-tag';
+  tag.textContent = 'Originale';
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta';
+  meta.textContent = `${formatBytes(sourceBytes.get(image))} · lo stesso file per i tre worker`;
+
+  card.append(tag, shot(sourceUrl(image), `Immagine di partenza: ${image}`), meta);
   return card;
 }
 
 function pendingCard(backend) {
   const card = document.createElement('article');
-  card.className = 'card pending';
-  card.innerHTML = `<h3>${backend.label}</h3><p class="muted">in corso… (a freddo puo' richiedere qualche secondo)</p>`;
+  card.className = `card out ${backend.id} pending`;
+  card.innerHTML = `
+    <p class="card-tag">${escapeHtml(backend.label)}</p>
+    <div class="skeleton"></div>
+    <p class="card-meta muted">in attesa della risposta…</p>
+  `;
   return card;
 }
 
+// Riempie una card arrivata e restituisce l'elemento della barra, che il
+// chiamante ridimensiona quando conosce il piu' lento del gruppo.
 function fillResult(card, backend, { metrics, objectUrl }, image) {
   const before = sourceBytes.get(image);
-  const ratio = before ? `${((1 - metrics.output_bytes / before) * 100).toFixed(0)}% in meno` : '—';
+  const saved = before ? `−${Math.round((1 - metrics.output_bytes / before) * 100)}%` : '';
 
-  card.className = 'card';
-  card.innerHTML = `
-    <h3>${backend.label} <span class="runtime">${metrics.runtime}</span></h3>
-    <img src="${objectUrl}" alt="Risultato del resize su ${backend.label}">
-    <dl>
-      <dt>Dimensioni</dt><dd>${metrics.width} × ${metrics.height}</dd>
-      <dt>Peso</dt><dd>${formatBytes(metrics.output_bytes)} <span class="muted">(${ratio})</span></dd>
-      <dt>Pipeline</dt><dd>${Math.round(metrics.total_ms).toLocaleString('it-IT')} ms <span class="muted">× ${metrics.count}</span></dd>
-    </dl>
-  `;
+  card.className = `card out ${backend.id} landed`;
+  card.replaceChildren();
+
+  const tag = document.createElement('p');
+  tag.className = 'card-tag';
+  tag.innerHTML = `${escapeHtml(backend.label)} <span class="runtime">${escapeHtml(metrics.runtime)}</span>`;
+
+  const ms = document.createElement('p');
+  ms.className = 'ms';
+  ms.innerHTML = `${Math.round(metrics.total_ms).toLocaleString('it-IT')}<small> ms</small>`;
+
+  const track = document.createElement('div');
+  track.className = 'bar';
+  const fill = document.createElement('span');
+  track.append(fill);
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta';
+  meta.innerHTML =
+    `${metrics.width} × ${metrics.height} · ${formatBytes(metrics.output_bytes)}` +
+    (saved ? ` <span class="saved">${saved}</span>` : '');
+
+  card.append(tag, shot(objectUrl, `Risultato del resize su ${backend.label}`), ms, track, meta);
+  return fill;
 }
 
 function fillError(card, backend, error) {
-  card.className = 'card failed';
-  card.innerHTML = `<h3>${backend.label}</h3><p class="error">${error.message}</p>`;
+  card.className = `card out ${backend.id} failed`;
+  card.innerHTML = `<p class="card-tag">${escapeHtml(backend.label)}</p><p class="error">${escapeHtml(error.message)}</p>`;
 }
 
-// Un blocco per immagine: intestazione col nome del file e dentro le quattro
-// card — l'originale e i tre worker.
+// Le barre sono in scala sul PIU' LENTO DEL GRUPPO, non su un massimo globale.
+//
+// Il confronto che la demo fa e' fra i tre runtime sulla stessa immagine; con
+// una scala globale, le barre dell'immagine piu' piccola diventerebbero tre
+// monconi indistinguibili e proprio quel confronto sparirebbe. Il valore
+// assoluto non si perde: sta scritto grande sopra la barra.
+//
+// Si ricalcola a ogni arrivo, non solo alla fine: cosi' la prima card che
+// atterra mostra subito una barra piena, e le altre la ridimensionano mentre
+// arrivano. La transizione CSS rende il riassestamento leggibile invece che
+// brusco.
+function rescaleBars(landed) {
+  const slowest = Math.max(...[...landed.values()].map((entry) => entry.ms));
+  for (const entry of landed.values()) {
+    entry.fill.style.width = `${Math.max(2, (entry.ms / slowest) * 100)}%`;
+  }
+}
+
+// Converte "il cursore sta alla frazione f dell'immagine" nella percentuale da
+// dare a background-position.
+//
+// Non e' l'identita', ed e' una trappola facile: una percentuale di
+// background-position non significa "mostra il punto al f% dell'immagine", ma
+// "allinea il f% dell'immagine col f% del contenitore". Con l'immagine
+// ingrandita LENS_ZOOM volte, la finestra inquadra la frazione
+// (ZOOM*f - 0.5) / (ZOOM - 1). Usare f cosi' com'era faceva inquadrare alla
+// lente un punto diverso da quello indicato, tanto piu' sbagliato quanto piu'
+// ci si allontanava dal centro.
+const LENS_ZOOM = 5; // deve restare allineato a `background-size` in styles.css
+
+function lensPosition(fraction) {
+  const raw = ((LENS_ZOOM * fraction - 0.5) / (LENS_ZOOM - 1)) * 100;
+  // Oltre i bordi non c'e' immagine da mostrare: il clamp e' cio' che tiene la
+  // lente piena invece di farci entrare una fetta di sfondo.
+  return `${Math.min(100, Math.max(0, raw))}%`;
+}
+
+// Un gruppo per immagine, a piramide: l'originale in cima, le frecce che si
+// diramano, i tre risultati sotto in colonna sotto il rispettivo logo.
 function createGroup(image) {
   const group = document.createElement('section');
   group.className = 'group';
@@ -251,9 +349,20 @@ function createGroup(image) {
   title.className = 'group-title';
   title.innerHTML = `${escapeHtml(image)} <span class="muted">${formatBytes(sourceBytes.get(image))}</span>`;
 
+  const stage = document.createElement('div');
+  stage.className = 'stage';
+
+  const fan = document.createElement('div');
+  fan.className = 'fan';
+  fan.setAttribute('aria-hidden', 'true');
+  fan.innerHTML =
+    '<span class="fan-stem"></span><span class="fan-bar"></span>' +
+    '<span class="fan-drop" style="--col:1"></span>' +
+    '<span class="fan-drop" style="--col:2"></span>' +
+    '<span class="fan-drop" style="--col:3"></span>';
+
   const row = document.createElement('div');
   row.className = 'row';
-  row.append(sourceCard(image));
 
   const cards = new Map();
   for (const backend of BACKENDS) {
@@ -262,7 +371,22 @@ function createGroup(image) {
     row.append(card);
   }
 
-  group.append(title, row);
+  stage.append(sourceCard(image), fan, row);
+  group.append(title, stage);
+
+  // Muovendo il mouse su una qualunque delle quattro immagini, TUTTE e quattro
+  // le lenti si spostano insieme sullo stesso punto della figura. E' il gesto
+  // che fa vedere il confronto dal vivo invece di lasciarlo dedurre; fermo, il
+  // valore di default inquadra comunque il centro, quindi la pagina dice la
+  // sua anche senza che nessuno tocchi il mouse.
+  stage.addEventListener('mousemove', (event) => {
+    const box = event.target.closest('.shot');
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    stage.style.setProperty('--lx', lensPosition((event.clientX - rect.left) / rect.width));
+    stage.style.setProperty('--ly', lensPosition((event.clientY - rect.top) / rect.height));
+  });
+
   return { group, cards };
 }
 
@@ -286,6 +410,7 @@ els.form.addEventListener('submit', async (event) => {
   // vive le loro immagini: staccare i nodi dal DOM da solo non lo fa.
   revokeLiveObjectUrls();
   els.results.replaceChildren();
+  els.legend.hidden = false;
 
   let failures = 0;
 
@@ -302,11 +427,16 @@ els.form.addEventListener('submit', async (event) => {
     const { group, cards } = createGroup(image);
     els.results.append(group);
 
+    const landed = new Map();
+
     await Promise.all(
       BACKENDS.map(async (backend) => {
         const card = cards.get(backend.id);
         try {
-          fillResult(card, backend, await runOne(backend, image, params), image);
+          const result = await runOne(backend, image, params);
+          const fill = fillResult(card, backend, result, image);
+          landed.set(backend.id, { ms: result.metrics.total_ms, fill });
+          rescaleBars(landed);
         } catch (error) {
           failures += 1;
           fillError(card, backend, error);

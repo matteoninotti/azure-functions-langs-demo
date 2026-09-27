@@ -30,22 +30,24 @@
     </fieldset>
 
     <div class="field">
-      <label for="width">Larghezza</label>
+      <label for="width">Larghezza (px)</label>
       <!-- 4000 e' il tetto dei tre worker: oltre, l'endpoint risponde 400.
            Offrire qui una scelta che il backend rifiuta farebbe sembrare rotta
            la demo. -->
       <input type="number" id="width" value="800" min="1" max="4000">
+      <small>L'altezza segue in proporzione.</small>
     </div>
 
     <div class="field">
-      <label for="quality">Qualità</label>
+      <label for="quality">Qualità (scala 1–95)</label>
       <!-- 95 e non 100: e' il tetto documentato di Pillow, cioe' il minimo
            comune denominatore fra i tre encoder. -->
       <input type="number" id="quality" value="80" min="1" max="95">
+      <small>Scala dell'encoder JPEG, non una percentuale.</small>
     </div>
 
     <div class="field">
-      <label for="count">Ripetizioni</label>
+      <label for="count">Ripetizioni (volte)</label>
       <!-- 500 e' il tetto dei tre worker: oltre, l'endpoint risponde 400. -->
       <input type="number" id="count" value="1" min="1" max="500">
       <small>Quante volte la pipeline gira dentro la stessa richiesta.</small>

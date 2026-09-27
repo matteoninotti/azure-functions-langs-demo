@@ -213,7 +213,7 @@ async function runOne(backend, image, params) {
 // alla STESSA dimensione sullo schermo: per questo la card dell'originale e'
 // larga esattamente quanto una colonna e non di piu'. Mostrarla piu' grande la
 // farebbe sembrare piu' nitida per un motivo che col resize non c'entra.
-function shot(url, alt) {
+function shot(url, alt, onSize) {
   const box = document.createElement('div');
   box.className = 'shot';
 
@@ -225,9 +225,12 @@ function shot(url, alt) {
   // non riempie il riquadro e il punto su cui si ingrandisce non coincide con
   // quello sotto il cursore.
   img.addEventListener('load', () => {
-    if (img.naturalWidth && img.naturalHeight) {
-      box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
-    }
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    // Le dimensioni dell'originale nessuno le dichiara: /api/images riporta i
+    // byte ma NON i pixel, di proposito (D34). Qui si leggono dall'immagine
+    // gia' scaricata, senza chiedere niente in piu' a nessuno.
+    if (onSize) onSize(img.naturalWidth, img.naturalHeight);
   });
 
   box.append(img);
@@ -244,9 +247,14 @@ function sourceCard(image) {
 
   const meta = document.createElement('p');
   meta.className = 'card-meta';
-  meta.textContent = `${formatBytes(sourceBytes.get(image))} · lo stesso file per i tre worker`;
+  const bytes = formatBytes(sourceBytes.get(image));
+  meta.textContent = `${bytes} · lo stesso file per i tre worker`;
 
-  card.append(tag, shot(sourceUrl(image), `Immagine di partenza: ${image}`), meta);
+  const picture = shot(sourceUrl(image), `Immagine di partenza: ${image}`, (w, h) => {
+    meta.textContent = `${w} × ${h} px · ${bytes}`;
+  });
+
+  card.append(tag, picture, meta);
   return card;
 }
 
@@ -286,7 +294,7 @@ function fillResult(card, backend, { metrics, objectUrl }, image) {
   const meta = document.createElement('p');
   meta.className = 'card-meta';
   meta.innerHTML =
-    `${metrics.width} × ${metrics.height} · ${formatBytes(metrics.output_bytes)}` +
+    `${metrics.width} × ${metrics.height} px · ${formatBytes(metrics.output_bytes)}` +
     (saved ? ` <span class="saved">${saved}</span>` : '');
 
   card.append(tag, shot(objectUrl, `Risultato del resize su ${backend.label}`), ms, track, meta);

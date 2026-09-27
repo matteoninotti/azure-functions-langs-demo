@@ -117,7 +117,6 @@ Rifiniture al pannello per renderlo più efficace dal vivo. Non tocca il percors
 - [x] **[S] Controllo differenziale della Metrica 4** (D61): due deploy della sola app Python identici tranne un import pesante a livello di modulo (pochi secondi, sotto il timeout di app init di 30 s), una richiesta singola a freddo su ciascuno, confronto dei MB-ms. Cancella le costanti ignote — allocazione istanza, avvio host, arrotondamento — perché identiche nei due deploy, e testa **direttamente** il corollario da slide (dove metti l'init cambia se lo paghi) invece di dedurlo. La misura assoluta resta `[M]`: questa è ciò che la rende conclusiva. ✅ 5 s di calcolo nell'app init: +4,9 s per l'utente e in `DurationMs`, zero nel fatturato (D136). Primo deploy passato sotto il lock.
 - [x] **[M] Run "sotto il secondo"** per mostrare il minimo fatturabile che azzera il vantaggio di Go. ✅ Riformulato (Go è il più lento, D126): Python e .NET fatturati 20 × 1.000 ms esatti con durate diverse di 2,4× (D131). Su Go, con il tetto a 5, le richieste in sequenza si bloccano fino a ~56 s; con il tetto a 20 no (D135): serve a decidere il tetto per la demo.
 - [x] **[M] Calcolo analitico always-ready** per linguaggio (nessuna istanza accesa davvero). ✅ €18,14/mese per istanza, uguale per i tre; elimina ~1,1 s (Python), ~1,6 s (.NET), ≥ 0,7 s (Go) sulla richiesta singola (D136).
-- [ ] **[M] Spegnere tutto** e verificare la spesa effettiva. ⚠️ Sul resource group c'è un lock `CanNotDelete`: il teardown fallisce finché non lo si toglie con `az lock delete --name protezione-pre-talk -g rg-torinodotnet-demo`.
 
 ## Fase 8 — Presentazione
 
@@ -126,6 +125,8 @@ Rifiniture al pannello per renderlo più efficace dal vivo. Non tocca il percors
 - [ ] **[M] Il giorno prima: rileggere la tabella delle versioni supportate su Flex.** È già cambiata una volta durante il progetto.
 - [ ] **[M] Prova generale della demo live**, con l'app già calda o già fredda a seconda di cosa si vuole mostrare.
 - [ ] **[C] Un run su Azure Load Testing** solo per la slide sull'integrazione con le metriche Azure, senza che i numeri dell'esperimento dipendano da lui.
+- [ ] **[M] Spegnere tutto** e verificare la spesa effettiva. ⚠️ Sul resource group c'è un lock `CanNotDelete`: il teardown fallisce finché non lo si toglie con `az lock delete --name protezione-pre-talk -g rg-torinodotnet-demo`.
+- [ ] **[S] Disinstallare LibreOffice dopo la presentazione**: `brew uninstall --cask libreoffice`.
 
 ---
 

@@ -200,41 +200,37 @@ async function runOne(backend, image, params) {
 
 // --- Rendering ---------------------------------------------------------------
 
-// Una "posa": l'immagine piu' la lente circolare che ne ingrandisce i pixel.
+// Una "posa": l'immagine dentro un riquadro che la ritaglia quando si
+// ingrandisce.
 //
-// La lente e' la parte che rende VISIBILE il resize invece di raccontarlo.
-// Tutte e quattro le lenti di un gruppo usano la stessa scala percentuale e la
-// stessa posizione, quindi inquadrano la STESSA porzione di figura: quella
-// dell'originale ha piu' pixel sorgente da mostrare su quello spazio e resta
-// nitida, quelle dei risultati ne hanno meno e si sgranano in blocchi.
+// Lo zoom e' la parte che rende VISIBILE il resize invece di raccontarlo:
+// passando il mouse su una qualunque delle quattro immagini si ingrandiscono
+// TUTTE E QUATTRO, sullo stesso punto e della stessa quantita'. L'originale ha
+// piu' pixel sorgente da mettere in quello spazio e regge l'ingrandimento; i
+// risultati ne hanno meno e si sgranano in blocchi.
 //
 // E' un confronto onesto solo perche' le quattro immagini sono mostrate anche
 // alla STESSA dimensione sullo schermo: per questo la card dell'originale e'
 // larga esattamente quanto una colonna e non di piu'. Mostrarla piu' grande la
-// farebbe sembrare piu' nitida per un motivo che non c'entra col resize.
+// farebbe sembrare piu' nitida per un motivo che col resize non c'entra.
 function shot(url, alt) {
   const box = document.createElement('div');
   box.className = 'shot';
-  box.style.setProperty('--shot', `url("${url}")`);
 
   const img = document.createElement('img');
   img.src = url;
   img.alt = alt;
 
-  // L'aspect-ratio si prende dall'immagine vera appena arriva. Senza, il
-  // contenitore non combacia con la figura e la lente inquadrerebbe un punto
-  // diverso da quello su cui sta il cursore.
+  // L'aspect-ratio si prende dall'immagine vera appena arriva. Senza, la figura
+  // non riempie il riquadro e il punto su cui si ingrandisce non coincide con
+  // quello sotto il cursore.
   img.addEventListener('load', () => {
     if (img.naturalWidth && img.naturalHeight) {
       box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
     }
   });
 
-  const lens = document.createElement('span');
-  lens.className = 'loupe';
-  lens.setAttribute('aria-hidden', 'true');
-
-  box.append(img, lens);
+  box.append(img);
   return box;
 }
 
@@ -320,26 +316,7 @@ function rescaleBars(landed) {
   }
 }
 
-// Converte "il cursore sta alla frazione f dell'immagine" nella percentuale da
-// dare a background-position.
-//
-// Non e' l'identita', ed e' una trappola facile: una percentuale di
-// background-position non significa "mostra il punto al f% dell'immagine", ma
-// "allinea il f% dell'immagine col f% del contenitore". Con l'immagine
-// ingrandita LENS_ZOOM volte, la finestra inquadra la frazione
-// (ZOOM*f - 0.5) / (ZOOM - 1). Usare f cosi' com'era faceva inquadrare alla
-// lente un punto diverso da quello indicato, tanto piu' sbagliato quanto piu'
-// ci si allontanava dal centro.
-const LENS_ZOOM = 5; // deve restare allineato a `background-size` in styles.css
-
-function lensPosition(fraction) {
-  const raw = ((LENS_ZOOM * fraction - 0.5) / (LENS_ZOOM - 1)) * 100;
-  // Oltre i bordi non c'e' immagine da mostrare: il clamp e' cio' che tiene la
-  // lente piena invece di farci entrare una fetta di sfondo.
-  return `${Math.min(100, Math.max(0, raw))}%`;
-}
-
-// Un gruppo per immagine, a piramide: l'originale in cima, le frecce che si
+// Un gruppo per immagine, in fila: l'originale in cima, le frecce che si
 // diramano, i tre risultati sotto in colonna sotto il rispettivo logo.
 function createGroup(image) {
   const group = document.createElement('section');
@@ -347,45 +324,59 @@ function createGroup(image) {
 
   const title = document.createElement('h2');
   title.className = 'group-title';
-  title.innerHTML = `${escapeHtml(image)} <span class="muted">${formatBytes(sourceBytes.get(image))}</span>`;
+  title.innerHTML =
+    `${escapeHtml(image)} <span class="muted">${formatBytes(sourceBytes.get(image))}</span>` +
+    '<span class="hint">passa il mouse su un\u2019immagine per ingrandirle tutte</span>';
 
   const stage = document.createElement('div');
   stage.className = 'stage';
 
-  const fan = document.createElement('div');
-  fan.className = 'fan';
-  fan.setAttribute('aria-hidden', 'true');
-  fan.innerHTML =
-    '<span class="fan-stem"></span><span class="fan-bar"></span>' +
-    '<span class="fan-drop" style="--col:1"></span>' +
-    '<span class="fan-drop" style="--col:2"></span>' +
-    '<span class="fan-drop" style="--col:3"></span>';
+  const arrow = document.createElement('div');
+  arrow.className = 'arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '\u2192';
 
-  const row = document.createElement('div');
-  row.className = 'row';
+  stage.append(sourceCard(image), arrow);
 
   const cards = new Map();
   for (const backend of BACKENDS) {
     const card = pendingCard(backend);
     cards.set(backend.id, card);
-    row.append(card);
+    stage.append(card);
   }
 
-  stage.append(sourceCard(image), fan, row);
   group.append(title, stage);
 
-  // Muovendo il mouse su una qualunque delle quattro immagini, TUTTE e quattro
-  // le lenti si spostano insieme sullo stesso punto della figura. E' il gesto
-  // che fa vedere il confronto dal vivo invece di lasciarlo dedurre; fermo, il
-  // valore di default inquadra comunque il centro, quindi la pagina dice la
-  // sua anche senza che nessuno tocchi il mouse.
-  stage.addEventListener('mousemove', (event) => {
+  // Muovendo il mouse su una qualunque delle quattro immagini si ingrandiscono
+  // TUTTE E QUATTRO, sullo stesso punto: e' il gesto che fa vedere il confronto
+  // invece di lasciarlo dedurre.
+  //
+  // Il punto si passa come `transform-origin`, che e' un'identita' — il punto
+  // al 25% resta il punto al 25% — mentre una percentuale di
+  // `background-position` non lo e', e con lo zoom 5x inquadrava il 30% quando
+  // il cursore stava al 25%. Con transform quel calcolo non serve proprio.
+  const track = (event) => {
     const box = event.target.closest('.shot');
-    if (!box) return;
+    if (!box) {
+      stage.classList.remove('zooming');
+      return;
+    }
     const rect = box.getBoundingClientRect();
-    stage.style.setProperty('--lx', lensPosition((event.clientX - rect.left) / rect.width));
-    stage.style.setProperty('--ly', lensPosition((event.clientY - rect.top) / rect.height));
-  });
+    stage.style.setProperty('--zx', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    stage.style.setProperty('--zy', `${((event.clientY - rect.top) / rect.height) * 100}%`);
+    stage.classList.add('zooming');
+  };
+
+  // Anche su `mouseover` e non solo su `mousemove`: se il puntatore entra
+  // sull'immagine senza muoversi — perche' e' la pagina a scorrere sotto, o
+  // perche' la card e' appena atterrata sotto un cursore fermo — `mousemove`
+  // non arriva e lo zoom non partirebbe.
+  stage.addEventListener('mousemove', track);
+  stage.addEventListener('mouseover', track);
+
+  // Uscendo dal gruppo lo zoom si spegne: senza, restava ingrandito anche
+  // quando il mouse era altrove nella pagina.
+  stage.addEventListener('mouseleave', () => stage.classList.remove('zooming'));
 
   return { group, cards };
 }

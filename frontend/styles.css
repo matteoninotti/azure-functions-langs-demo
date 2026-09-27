@@ -149,12 +149,15 @@ button:disabled { opacity: .45; cursor: progress; }
 
 /* Sticky perche' con le immagini grandi un gruppo non sta in una schermata:
    scorrendo, senza questa riga si perde di vista quale colonna e' quale. */
+/* Stessa griglia dello stage — colonna dell'originale, spazio della freccia,
+   tre colonne dei risultati — cosi' ogni logo cade esattamente sopra la sua
+   colonna invece che su una qualunque. */
 .legend {
   position: sticky;
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 40px repeat(3, 1fr);
   gap: 1.2rem;
   margin-bottom: 1.6rem;
   padding: .85rem 0;
@@ -174,6 +177,16 @@ button:disabled { opacity: .45; cursor: progress; }
 .legend-item.python { border-bottom-color: var(--c-python); }
 .legend-item.dotnet { border-bottom-color: var(--c-dotnet); }
 .legend-item.go     { border-bottom-color: var(--c-go); }
+
+.legend-in {
+  align-self: end;
+  padding-bottom: .5rem;
+  font: 700 .78rem/1 system-ui;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  border-bottom: 3px solid var(--line);
+}
 
 .logo { height: 44px; width: auto; display: block; }
 
@@ -204,69 +217,35 @@ button:disabled { opacity: .45; cursor: progress; }
   border-bottom: 1px solid var(--line);
 }
 
-/* A piramide: l'originale in cima, le frecce che si diramano, i tre risultati
-   sotto. La posizione dice da sola cosa e' entrato e cosa e' uscito, senza che
-   si debba leggere un'etichetta — che era il problema del layout in fila. */
-.stage { display: flex; flex-direction: column; align-items: center; }
+/* Lo zoom e' il pezzo piu' utile della pagina e l'unico che non si vede se
+   nessuno ci passa sopra: l'indicazione sta a destra del titolo del gruppo. */
+.hint {
+  margin-left: auto;
+  font: 400 .8rem/1 system-ui;
+  color: var(--muted);
+}
 
-/* Larga ESATTAMENTE quanto una colonna, non di piu': le lenti confrontano i
-   pixel, e un originale mostrato piu' grande sembrerebbe piu' nitido per un
-   motivo che col resize non c'entra niente. */
-.card.source { width: calc((100% - 2.4rem) / 3); }
+/* In fila: l'originale a sinistra, la freccia, i tre risultati.
+   NON a piramide con l'originale in cima al centro: li' finiva esattamente
+   sopra la colonna di .NET, e sembrava che l'originale fosse suo. In fila il
+   verso della lettura dice da solo cosa e' entrato e cosa e' uscito, e un
+   gruppo sta in una schermata invece di richiedere due.
 
-.row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; width: 100%; }
-
-/* --- Le frecce ------------------------------------------------------------- */
-
-.fan {
-  position: relative;
-  width: 100%;
-  height: 66px;
+   Le quattro colonne dei contenuti sono `1fr` uguali: le quattro immagini
+   devono essere mostrate alla STESSA dimensione, altrimenti l'originale
+   sembrerebbe piu' nitido per un motivo che col resize non c'entra. */
+.stage {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 40px repeat(3, 1fr);
+  gap: 1.2rem;
+  align-items: start;
 }
 
-.fan-stem {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 2px;
-  height: 30px;
-  background: var(--line);
-  transform: translateX(-50%);
-}
-
-/* Da centro-colonna a centro-colonna: con tre colonne uguali sono il 16,667%
-   per lato, quindi la barra tocca esattamente i punti da cui scendono i rami. */
-.fan-bar {
-  position: absolute;
-  top: 30px;
-  left: 16.667%;
-  right: 16.667%;
-  height: 2px;
-  background: var(--line);
-}
-
-.fan-drop {
-  grid-column: var(--col);
-  justify-self: center;
-  align-self: start;
-  position: relative;
-  margin-top: 30px;
-  width: 2px;
-  height: 26px;
-  background: var(--line);
-}
-
-.fan-drop::after {
-  content: '';
-  position: absolute;
-  bottom: -7px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid var(--line);
+.arrow {
+  align-self: center;
+  text-align: center;
+  font-size: 1.6rem;
+  color: var(--muted);
 }
 
 /* --- Card ------------------------------------------------------------------ */
@@ -312,33 +291,30 @@ button:disabled { opacity: .45; cursor: progress; }
   border-radius: 8px;
   overflow: hidden;
   background: #000;
+  cursor: zoom-in;
 }
 
 .shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
-/* background-size in PERCENTUALE e non in pixel: cosi' la lente inquadra la
-   stessa FRAZIONE di figura su tutte e quattro le immagini, a prescindere da
-   quanti pixel sorgente quella figura abbia. L'originale ne ha di piu' da
-   mettere in quello spazio e resta nitido; i risultati ne hanno meno e si
-   sgranano in blocchi — che e' esattamente cio' che il resize ha fatto.
-   `pixelated` toglie l'interpolazione del browser, che altrimenti li
-   ammorbidirebbe nascondendo il fenomeno. */
-.loupe {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  width: 34%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, .92);
-  box-shadow: 0 3px 14px rgba(0, 0, 0, .55);
-  background-image: var(--shot);
-  background-repeat: no-repeat;
-  background-size: 500%;
-  background-position: var(--lx, 50%) var(--ly, 50%);
-  image-rendering: pixelated;
-  pointer-events: none;
-}
+/* Lo zoom e' un `transform: scale` con l'origine sul punto sotto il cursore:
+   quel punto resta fermo e tutto il resto si allarga attorno, che e' il
+   comportamento delle foto prodotto. Si applica a TUTTE e quattro le immagini
+   del gruppo insieme, con lo stesso fattore e lo stesso punto, perche' il
+   confronto sta li'.
+
+   `pixelated` solo da ingrandite: a riposo le immagini sono rimpicciolite per
+   stare nella card, e li' toglierebbe l'interpolazione proprio dove serve,
+   sgranando anche l'originale. */
+.shot img { transform-origin: var(--zx, 50%) var(--zy, 50%); transition: transform .18s ease-out; }
+
+/* 5x e non meno, e la soglia non e' estetica: i blocchi si vedono solo quando
+   l'ingrandimento supera il rapporto fra pixel sorgente e pixel a schermo.
+   Un risultato da 800px mostrato in una colonna da ~294px e' ancora
+   rimpicciolito fino a 2,7x — sotto quella soglia lo zoom ingrandisce senza
+   sgranare, e le quattro immagini restano indistinguibili. */
+.stage.zooming .shot img { transform: scale(5); image-rendering: pixelated; }
+
+
 
 /* --- Il tempo: l'elemento che porta davvero l'informazione ----------------- */
 
@@ -391,6 +367,8 @@ button:disabled { opacity: .45; cursor: progress; }
   .card.landed { animation: none; }
   .bar span { transition: none; }
   .skeleton { animation: none; }
+  /* Lo zoom resta — e' il contenuto, non una decorazione — ma senza transizione. */
+  .shot img { transition: none; }
 }
 
 .muted { color: var(--muted); }
@@ -399,13 +377,11 @@ button:disabled { opacity: .45; cursor: progress; }
 footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
 
 @media (max-width: 900px) {
-  /* In colonna singola la piramide non ha piu' niente da disporre: le frecce
-     e la legenda spariscono, e il nome del runtime resta su ogni card. */
+  /* In colonna singola non c'e' piu' una fila da intestare: legenda e freccia
+     spariscono, e il nome del runtime resta scritto su ogni card. */
   .legend { display: none; }
-  .fan { display: none; }
-  .row { grid-template-columns: 1fr; }
-  .card.source { width: 100%; margin-bottom: 1.2rem; }
-  .stage { gap: 0; }
+  .arrow { display: none; }
+  .stage { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {

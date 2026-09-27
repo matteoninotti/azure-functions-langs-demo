@@ -7,6 +7,15 @@
   --accent: #5aa9ff;
   --error: #ff8a80;
   --warn: #ffcc66;
+  --good: #4ade80;
+
+  /* Colori dei tre runtime: presi dai rispettivi marchi, cosi' la barra e il
+     logo in cima alla colonna dicono la stessa cosa. Il viola di .NET e'
+     schiarito rispetto al #512BD4 del logo, che su fondo scuro non si
+     distinguerebbe dal bordo. */
+  --c-python: #4b8bbe;
+  --c-dotnet: #8b5cf6;
+  --c-go: #00acd7;
 }
 
 * { box-sizing: border-box; }
@@ -19,7 +28,7 @@ body {
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-header, #controls, #status, .results, footer {
+header, #controls, #status, .legend, .results, footer {
   max-width: 1280px;
   margin-inline: auto;
 }
@@ -136,9 +145,67 @@ button:disabled { opacity: .45; cursor: progress; }
 #status.error { color: var(--error); }
 #status.warn { color: var(--warn); }
 
-.results { display: flex; flex-direction: column; gap: 2rem; }
+/* --- Legenda: i tre runtime, scritti una volta sola ------------------------ */
 
-.group { display: flex; flex-direction: column; gap: .8rem; }
+/* Sticky perche' con le immagini grandi un gruppo non sta in una schermata:
+   scorrendo, senza questa riga si perde di vista quale colonna e' quale. */
+/* Stessa griglia dello stage — colonna dell'originale, spazio della freccia,
+   tre colonne dei risultati — cosi' ogni logo cade esattamente sopra la sua
+   colonna invece che su una qualunque. */
+.legend {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 40px repeat(3, 1fr);
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+  padding: .85rem 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 3px solid transparent;
+}
+
+.legend-item.python { border-bottom-color: var(--c-python); }
+.legend-item.dotnet { border-bottom-color: var(--c-dotnet); }
+.legend-item.go     { border-bottom-color: var(--c-go); }
+
+.legend-in {
+  align-self: end;
+  padding-bottom: .5rem;
+  font: 700 .78rem/1 system-ui;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  border-bottom: 3px solid var(--line);
+}
+
+.logo { height: 44px; width: auto; display: block; }
+
+/* Python e' un marchio senza testo, quindi accanto ci va il nome scritto.
+   .NET e Go usano la versione TESTUALE del proprio logo, che il nome ce
+   l'ha gia' dentro: ripeterlo accanto sarebbe scritto due volte. Sono piu'
+   larghi e piu' bassi, cosi' i tre pesano visivamente uguale.
+
+   Il quadrato viola pieno di .NET e' scartato di proposito: accanto a Python
+   e Go, che non hanno sfondo, risalterebbe come se contasse di piu' (D153). */
+.logo-wide { height: 34px; }
+
+.legend-name { font: 700 1.3rem/1 system-ui; letter-spacing: -.01em; }
+
+/* --- Gruppi ---------------------------------------------------------------- */
+
+.results { display: flex; flex-direction: column; gap: 3rem; }
+
+.group { display: flex; flex-direction: column; gap: .9rem; }
 
 .group-title {
   margin: 0;
@@ -150,40 +217,172 @@ button:disabled { opacity: .45; cursor: progress; }
   border-bottom: 1px solid var(--line);
 }
 
-.row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.2rem;
+/* Lo zoom e' il pezzo piu' utile della pagina e l'unico che non si vede se
+   nessuno ci passa sopra: l'indicazione sta a destra del titolo del gruppo. */
+.hint {
+  margin-left: auto;
+  font: 400 .8rem/1 system-ui;
+  color: var(--muted);
 }
+
+/* In fila: l'originale a sinistra, la freccia, i tre risultati.
+   NON a piramide con l'originale in cima al centro: li' finiva esattamente
+   sopra la colonna di .NET, e sembrava che l'originale fosse suo. In fila il
+   verso della lettura dice da solo cosa e' entrato e cosa e' uscito, e un
+   gruppo sta in una schermata invece di richiedere due.
+
+   Le quattro colonne dei contenuti sono `1fr` uguali: le quattro immagini
+   devono essere mostrate alla STESSA dimensione, altrimenti l'originale
+   sembrerebbe piu' nitido per un motivo che col resize non c'entra. */
+.stage {
+  display: grid;
+  grid-template-columns: 1fr 40px repeat(3, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+.arrow {
+  align-self: center;
+  text-align: center;
+  font-size: 1.6rem;
+  color: var(--muted);
+}
+
+/* --- Card ------------------------------------------------------------------ */
 
 .card {
-  padding: 1.1rem;
+  padding: 1rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-.card.pending { opacity: .6; }
-
-/* L'originale ha un bordo diverso: affiancato a tre risultati che gli
-   somigliano molto, senza un segno visivo si confonde con loro. */
 .card.source { border-style: dashed; }
 .card.failed { border-color: var(--error); }
 
-.card h3 { margin: 0 0 .8rem; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+.card-tag {
+  margin: 0 0 .7rem;
+  font: 700 .95rem/1 system-ui;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+}
+
+.card.source .card-tag {
+  font: 700 .75rem/1 system-ui;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.card-meta { margin: .55rem 0 0; font-size: .85rem; color: var(--muted); }
+
+.saved { color: var(--good); font-weight: 600; }
 
 .runtime { font: 400 .75rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
 
-.card img { width: 100%; height: auto; border-radius: 6px; background: #000; display: block; }
+/* --- Immagine e lente ------------------------------------------------------ */
 
-dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem .9rem; margin: .9rem 0 0; font-size: .9rem; }
-dt { color: var(--muted); }
-dd { margin: 0; }
+.shot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  cursor: zoom-in;
+}
+
+.shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Lo zoom e' un `transform: scale` con l'origine sul punto sotto il cursore:
+   quel punto resta fermo e tutto il resto si allarga attorno, che e' il
+   comportamento delle foto prodotto. Si applica a TUTTE e quattro le immagini
+   del gruppo insieme, con lo stesso fattore e lo stesso punto, perche' il
+   confronto sta li'.
+
+   `pixelated` solo da ingrandite: a riposo le immagini sono rimpicciolite per
+   stare nella card, e li' toglierebbe l'interpolazione proprio dove serve,
+   sgranando anche l'originale. */
+.shot img { transform-origin: var(--zx, 50%) var(--zy, 50%); transition: transform .18s ease-out; }
+
+/* 5x e non meno, e la soglia non e' estetica: i blocchi si vedono solo quando
+   l'ingrandimento supera il rapporto fra pixel sorgente e pixel a schermo.
+   Un risultato da 800px mostrato in una colonna da ~294px e' ancora
+   rimpicciolito fino a 2,7x — sotto quella soglia lo zoom ingrandisce senza
+   sgranare, e le quattro immagini restano indistinguibili. */
+.stage.zooming .shot img { transform: scale(5); image-rendering: pixelated; }
+
+
+
+/* --- Il tempo: l'elemento che porta davvero l'informazione ----------------- */
+
+.ms { margin: .8rem 0 .45rem; font: 700 1.8rem/1 system-ui; letter-spacing: -.02em; }
+.ms small { font: 500 .85rem/1 system-ui; color: var(--muted); }
+
+.bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
+
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 6px;
+  transition: width .5s cubic-bezier(.22, .7, .3, 1);
+}
+
+.card.python .bar span { background: var(--c-python); }
+.card.dotnet .bar span { background: var(--c-dotnet); }
+.card.go     .bar span { background: var(--c-go); }
+
+/* --- Attesa e arrivo ------------------------------------------------------- */
+
+/* L'attesa si comunica in modo QUALITATIVO: lo shimmer pulsa finche' la
+   risposta non arriva, quindi su un cold start pulsa a lungo e la lentezza si
+   sente. Non scrive un numero, perche' il tempo a parete del browser contiene
+   rete e overhead di piattaforma — un numero diverso da quello sulla card. */
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.skeleton {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--line) 35%, var(--panel) 50%, var(--line) 65%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.card.pending { opacity: .75; }
+
+/* L'arrivo invece e' un'animazione a durata FISSA e uguale per i tre: dice
+   "e' atterrato", non "ci ha messo tanto". La durata la racconta la barra. */
+@keyframes land {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.card.landed { animation: land .45s cubic-bezier(.22, .7, .3, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.landed { animation: none; }
+  .bar span { transition: none; }
+  .skeleton { animation: none; }
+  /* Lo zoom resta — e' il contenuto, non una decorazione — ma senza transizione. */
+  .shot img { transition: none; }
+}
 
 .muted { color: var(--muted); }
 .error { color: var(--error); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
 
 footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
+
+@media (max-width: 900px) {
+  /* In colonna singola non c'e' piu' una fila da intestare: legenda e freccia
+     spariscono, e il nome del runtime resta scritto su ogni card. */
+  .legend { display: none; }
+  .arrow { display: none; }
+  .stage { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 760px) {
   body { padding: 1.25rem 1rem 2rem; }
@@ -195,8 +394,12 @@ footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
 }
 
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f6f7fa; --panel: #fff; --line: #dfe3ea; --text: #1a1d24; --muted: #626a7a; --accent: #1a6fd4; }
+  :root {
+    --bg: #f6f7fa; --panel: #fff; --line: #dfe3ea; --text: #1a1d24;
+    --muted: #626a7a; --accent: #1a6fd4; --good: #166534;
+    --c-python: #3776ab; --c-dotnet: #512bd4; --c-go: #007d9c;
+  }
   select, input { background: #fff; }
   button { color: #fff; }
-  .card img { background: #eee; }
+  .skeleton { background: linear-gradient(100deg, #e8ecf2 35%, #fff 50%, #e8ecf2 65%); background-size: 200% 100%; }
 }

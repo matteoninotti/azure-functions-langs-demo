@@ -23,6 +23,7 @@ const els = {
   run: document.getElementById('run'),
   status: document.getElementById('status'),
   results: document.getElementById('results'),
+  legend: document.getElementById('legend'),
 };
 
 const api = (backend, path) => `https://${backend.host}/api/${path}`;
@@ -199,70 +200,192 @@ async function runOne(backend, image, params) {
 
 // --- Rendering ---------------------------------------------------------------
 
+// Una "posa": l'immagine dentro un riquadro che la ritaglia quando si
+// ingrandisce.
+//
+// Lo zoom e' la parte che rende VISIBILE il resize invece di raccontarlo:
+// passando il mouse su una qualunque delle quattro immagini si ingrandiscono
+// TUTTE E QUATTRO, sullo stesso punto e della stessa quantita'. L'originale ha
+// piu' pixel sorgente da mettere in quello spazio e regge l'ingrandimento; i
+// risultati ne hanno meno e si sgranano in blocchi.
+//
+// E' un confronto onesto solo perche' le quattro immagini sono mostrate anche
+// alla STESSA dimensione sullo schermo: per questo la card dell'originale e'
+// larga esattamente quanto una colonna e non di piu'. Mostrarla piu' grande la
+// farebbe sembrare piu' nitida per un motivo che col resize non c'entra.
+function shot(url, alt, onSize) {
+  const box = document.createElement('div');
+  box.className = 'shot';
+
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = alt;
+
+  // L'aspect-ratio si prende dall'immagine vera appena arriva. Senza, la figura
+  // non riempie il riquadro e il punto su cui si ingrandisce non coincide con
+  // quello sotto il cursore.
+  img.addEventListener('load', () => {
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    // Le dimensioni dell'originale nessuno le dichiara: /api/images riporta i
+    // byte ma NON i pixel, di proposito (D34). Qui si leggono dall'immagine
+    // gia' scaricata, senza chiedere niente in piu' a nessuno.
+    if (onSize) onSize(img.naturalWidth, img.naturalHeight);
+  });
+
+  box.append(img);
+  return box;
+}
+
 function sourceCard(image) {
   const card = document.createElement('article');
   card.className = 'card source';
-  card.innerHTML = `
-    <h3>Originale <span class="runtime">sorgente</span></h3>
-    <img src="${escapeHtml(sourceUrl(image))}" alt="Immagine di partenza, prima del resize">
-    <dl>
-      <dt>Peso</dt><dd>${formatBytes(sourceBytes.get(image))}</dd>
-      <dt>Nota</dt><dd class="muted">Lo stesso file per i tre worker.</dd>
-    </dl>
-  `;
+
+  const tag = document.createElement('p');
+  tag.className = 'card-tag';
+  tag.textContent = 'Originale';
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta';
+  const bytes = formatBytes(sourceBytes.get(image));
+  meta.textContent = `${bytes} · lo stesso file per i tre worker`;
+
+  const picture = shot(sourceUrl(image), `Immagine di partenza: ${image}`, (w, h) => {
+    meta.textContent = `${w} × ${h} px · ${bytes}`;
+  });
+
+  card.append(tag, picture, meta);
   return card;
 }
 
 function pendingCard(backend) {
   const card = document.createElement('article');
-  card.className = 'card pending';
-  card.innerHTML = `<h3>${backend.label}</h3><p class="muted">in corso… (a freddo puo' richiedere qualche secondo)</p>`;
+  card.className = `card out ${backend.id} pending`;
+  card.innerHTML = `
+    <p class="card-tag">${escapeHtml(backend.label)}</p>
+    <div class="skeleton"></div>
+    <p class="card-meta muted">in attesa della risposta…</p>
+  `;
   return card;
 }
 
+// Riempie una card arrivata e restituisce l'elemento della barra, che il
+// chiamante ridimensiona quando conosce il piu' lento del gruppo.
 function fillResult(card, backend, { metrics, objectUrl }, image) {
   const before = sourceBytes.get(image);
-  const ratio = before ? `${((1 - metrics.output_bytes / before) * 100).toFixed(0)}% in meno` : '—';
+  const saved = before ? `−${Math.round((1 - metrics.output_bytes / before) * 100)}%` : '';
 
-  card.className = 'card';
-  card.innerHTML = `
-    <h3>${backend.label} <span class="runtime">${metrics.runtime}</span></h3>
-    <img src="${objectUrl}" alt="Risultato del resize su ${backend.label}">
-    <dl>
-      <dt>Dimensioni</dt><dd>${metrics.width} × ${metrics.height}</dd>
-      <dt>Peso</dt><dd>${formatBytes(metrics.output_bytes)} <span class="muted">(${ratio})</span></dd>
-      <dt>Pipeline</dt><dd>${Math.round(metrics.total_ms).toLocaleString('it-IT')} ms <span class="muted">× ${metrics.count}</span></dd>
-    </dl>
-  `;
+  card.className = `card out ${backend.id} landed`;
+  card.replaceChildren();
+
+  const tag = document.createElement('p');
+  tag.className = 'card-tag';
+  tag.innerHTML = `${escapeHtml(backend.label)} <span class="runtime">${escapeHtml(metrics.runtime)}</span>`;
+
+  const ms = document.createElement('p');
+  ms.className = 'ms';
+  ms.innerHTML = `${Math.round(metrics.total_ms).toLocaleString('it-IT')}<small> ms</small>`;
+
+  const track = document.createElement('div');
+  track.className = 'bar';
+  const fill = document.createElement('span');
+  track.append(fill);
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta';
+  meta.innerHTML =
+    `${metrics.width} × ${metrics.height} px · ${formatBytes(metrics.output_bytes)}` +
+    (saved ? ` <span class="saved">${saved}</span>` : '');
+
+  card.append(tag, shot(objectUrl, `Risultato del resize su ${backend.label}`), ms, track, meta);
+  return fill;
 }
 
 function fillError(card, backend, error) {
-  card.className = 'card failed';
-  card.innerHTML = `<h3>${backend.label}</h3><p class="error">${error.message}</p>`;
+  card.className = `card out ${backend.id} failed`;
+  card.innerHTML = `<p class="card-tag">${escapeHtml(backend.label)}</p><p class="error">${escapeHtml(error.message)}</p>`;
 }
 
-// Un blocco per immagine: intestazione col nome del file e dentro le quattro
-// card — l'originale e i tre worker.
+// Le barre sono in scala sul PIU' LENTO DEL GRUPPO, non su un massimo globale.
+//
+// Il confronto che la demo fa e' fra i tre runtime sulla stessa immagine; con
+// una scala globale, le barre dell'immagine piu' piccola diventerebbero tre
+// monconi indistinguibili e proprio quel confronto sparirebbe. Il valore
+// assoluto non si perde: sta scritto grande sopra la barra.
+//
+// Si ricalcola a ogni arrivo, non solo alla fine: cosi' la prima card che
+// atterra mostra subito una barra piena, e le altre la ridimensionano mentre
+// arrivano. La transizione CSS rende il riassestamento leggibile invece che
+// brusco.
+function rescaleBars(landed) {
+  const slowest = Math.max(...[...landed.values()].map((entry) => entry.ms));
+  for (const entry of landed.values()) {
+    entry.fill.style.width = `${Math.max(2, (entry.ms / slowest) * 100)}%`;
+  }
+}
+
+// Un gruppo per immagine, in fila: l'originale in cima, le frecce che si
+// diramano, i tre risultati sotto in colonna sotto il rispettivo logo.
 function createGroup(image) {
   const group = document.createElement('section');
   group.className = 'group';
 
   const title = document.createElement('h2');
   title.className = 'group-title';
-  title.innerHTML = `${escapeHtml(image)} <span class="muted">${formatBytes(sourceBytes.get(image))}</span>`;
+  title.innerHTML =
+    `${escapeHtml(image)} <span class="muted">${formatBytes(sourceBytes.get(image))}</span>` +
+    '<span class="hint">passa il mouse su un\u2019immagine per ingrandirle tutte</span>';
 
-  const row = document.createElement('div');
-  row.className = 'row';
-  row.append(sourceCard(image));
+  const stage = document.createElement('div');
+  stage.className = 'stage';
+
+  const arrow = document.createElement('div');
+  arrow.className = 'arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '\u2192';
+
+  stage.append(sourceCard(image), arrow);
 
   const cards = new Map();
   for (const backend of BACKENDS) {
     const card = pendingCard(backend);
     cards.set(backend.id, card);
-    row.append(card);
+    stage.append(card);
   }
 
-  group.append(title, row);
+  group.append(title, stage);
+
+  // Muovendo il mouse su una qualunque delle quattro immagini si ingrandiscono
+  // TUTTE E QUATTRO, sullo stesso punto: e' il gesto che fa vedere il confronto
+  // invece di lasciarlo dedurre.
+  //
+  // Il punto si passa come `transform-origin`, che e' un'identita' — il punto
+  // al 25% resta il punto al 25% — mentre una percentuale di
+  // `background-position` non lo e', e con lo zoom 5x inquadrava il 30% quando
+  // il cursore stava al 25%. Con transform quel calcolo non serve proprio.
+  const track = (event) => {
+    const box = event.target.closest('.shot');
+    if (!box) {
+      stage.classList.remove('zooming');
+      return;
+    }
+    const rect = box.getBoundingClientRect();
+    stage.style.setProperty('--zx', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    stage.style.setProperty('--zy', `${((event.clientY - rect.top) / rect.height) * 100}%`);
+    stage.classList.add('zooming');
+  };
+
+  // Anche su `mouseover` e non solo su `mousemove`: se il puntatore entra
+  // sull'immagine senza muoversi — perche' e' la pagina a scorrere sotto, o
+  // perche' la card e' appena atterrata sotto un cursore fermo — `mousemove`
+  // non arriva e lo zoom non partirebbe.
+  stage.addEventListener('mousemove', track);
+  stage.addEventListener('mouseover', track);
+
+  // Uscendo dal gruppo lo zoom si spegne: senza, restava ingrandito anche
+  // quando il mouse era altrove nella pagina.
+  stage.addEventListener('mouseleave', () => stage.classList.remove('zooming'));
+
   return { group, cards };
 }
 
@@ -286,6 +409,7 @@ els.form.addEventListener('submit', async (event) => {
   // vive le loro immagini: staccare i nodi dal DOM da solo non lo fa.
   revokeLiveObjectUrls();
   els.results.replaceChildren();
+  els.legend.hidden = false;
 
   let failures = 0;
 
@@ -302,11 +426,16 @@ els.form.addEventListener('submit', async (event) => {
     const { group, cards } = createGroup(image);
     els.results.append(group);
 
+    const landed = new Map();
+
     await Promise.all(
       BACKENDS.map(async (backend) => {
         const card = cards.get(backend.id);
         try {
-          fillResult(card, backend, await runOne(backend, image, params), image);
+          const result = await runOne(backend, image, params);
+          const fill = fillResult(card, backend, result, image);
+          landed.set(backend.id, { ms: result.metrics.total_ms, fill });
+          rescaleBars(landed);
         } catch (error) {
           failures += 1;
           fillError(card, backend, error);

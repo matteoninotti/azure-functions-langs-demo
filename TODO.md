@@ -126,6 +126,7 @@ Rifiniture al pannello per renderlo più efficace dal vivo. Non tocca il percors
 - [ ] **[M] Prova generale della demo live**, con l'app già calda o già fredda a seconda di cosa si vuole mostrare. ⚠️ Il pannello è cambiato (D155, D159, D160): originale a sinistra, zoom sincronizzato sulle quattro immagini, barre dei tempi. Da provare in particolare **con quale `width`**: a 800 la sgranatura non si vede, a 300 sì (D156, D160), e sono due valori che servono a due cose diverse.
 - [ ] **[C] Un run su Azure Load Testing** solo per la slide sull'integrazione con le metriche Azure, senza che i numeri dell'esperimento dipendano da lui.
 - [ ] **[M] Spegnere tutto** e verificare la spesa effettiva. ⚠️ Sul resource group c'è un lock `CanNotDelete`: il teardown fallisce finché non lo si toglie con `az lock delete --name protezione-pre-talk -g rg-torinodotnet-demo`.
+- [ ] **[S] Cancellare il profilo Firefox della demo** creato da `live-m3.sh fe`: `rm -rf presentazione/live/.ff-profile`.
 - [x] **[S] Disinstallare LibreOffice dopo la presentazione**: `brew uninstall --cask libreoffice`. ✅ Disinstallato prima del talk: il deck si apre in Keynote (D149).
 
 ---

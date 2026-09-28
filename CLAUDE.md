@@ -35,6 +35,13 @@ Se `instructions.md` e il log dicono cose diverse, **vince il log** — ed è il
 - **Versioning = GitHub flow, un branch per fase.** Il codice di ogni fase sta su un branch che porta il suo nome (`phase-N`, allineato a `TODO.md`); si committa a ogni task completato o avanzato (test verdi + `TODO.md` sincronizzato nello stesso commit). A fase finita, merge su `main` con `git merge --no-ff`. `main` resta sempre rilasciabile. Le modifiche di meta-progetto (CLAUDE.md, documentazione, guardrail) vanno **dritte su `main`**, non su un branch di fase. I task procedurali di **Fase 0** (account, MFA, budget alert, resource provider — cose fatte fuori dal codice) si committano sul branch `phase-0`, come qualsiasi altro task di fase: non vanno su `main`. Merge, push e cancellazione dei branch si fanno **solo su indicazione esplicita di Matteo** — mai push o delete non richiesti.
 - **Il deploy non parte da solo.** La pipeline è `workflow_dispatch`, e non si lancia durante una finestra di misura.
 - **Il deploy parte solo da `main` (D44, D111).** Il job di deploy passa dall'environment GitHub `production`, che ammette solo `main` e si ferma in attesa dell'approvazione di Matteo prima di ogni deploy. La credenziale federata OIDC del job è registrata sul subject di quell'environment. Un `workflow_dispatch` lanciato da un branch di fase non deploya: lo ferma la branch policy dell'environment o, se il workflow di quel branch non referenzia l'environment, l'autenticazione OIDC. Per deployare il codice di una fase, prima si porta su `main` — con il merge esplicito richiesto dalla riga sopra.
+- **Ogni modifica alle slide si propaga a tutti i documenti che le descrivono, nello stesso passo.** Il deck vive in `presentazione/presentazione.key` e si modifica lì. Quando una slide viene aggiunta, tolta, spostata o cambia testo, prima di chiudere il passo si aggiornano:
+  - i numeri di pagina nel `.key`;
+  - `presentazione/slides.md`: titoli numerati, testo di ogni slide allineato al deck, rimandi "slide N" nelle fonti. Per le slide nuove si scrive solo il testo, mai le note: le note sono di Matteo;
+  - `presentazione/da-decidere.md`;
+  - nel vault, ogni appunto che cita un numero di slide: i marcatori `[slide N]` del parlato e le checklist degli appunti. Si trovano con una ricerca di `slide N` nella cartella del progetto nel vault, non a memoria.
+
+  Ogni riferimento spostato va ricontrollato sul contenuto: il numero nuovo deve puntare alla slide che parla davvero di quell'argomento. Poi la modifica si registra nel decision log.
 
 ## Fatti bloccati (dettagli e motivazioni nel log)
 

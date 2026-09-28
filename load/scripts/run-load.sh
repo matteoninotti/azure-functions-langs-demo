@@ -10,6 +10,11 @@
 # i tre linguaggi (D89, D92), passati espliciti a resize.js: i suoi default non
 # sono questi.
 #
+# RPS, PRE_ALLOCATED_VUS e MAX_VUS si possono cambiare da variabile d'ambiente,
+# solo per run esplorativi fuori dalla campagna, con un'etichetta loro:
+#
+#   RPS=30 PRE_ALLOCATED_VUS=600 MAX_VUS=1500 ./load/scripts/run-load.sh m3x-go-30rps go
+#
 # Scrive in load/output/<etichetta>/:
 #   k6.log        l'output completo di k6
 #   summary.json  il riepilogo di fine test (--summary-export)
@@ -38,15 +43,18 @@ LANGUAGE="${2:-}"
 [[ "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "uso: $0 <etichetta> <python|dotnet|go>" >&2; exit 2; }
 case "$LANGUAGE" in python|dotnet|go) ;; *) echo "uso: $0 <etichetta> <python|dotnet|go>" >&2; exit 2 ;; esac
 
-RPS=10
+RPS="${RPS:-10}"
 DURATION=60s
 DURATION_S=60
 COUNT=80
 IMAGE=npm-install-7-years.jpg
 WIDTH=800
 QUALITY=80
-PRE_ALLOCATED_VUS=300
-MAX_VUS=400
+PRE_ALLOCATED_VUS="${PRE_ALLOCATED_VUS:-300}"
+MAX_VUS="${MAX_VUS:-400}"
+for v in RPS PRE_ALLOCATED_VUS MAX_VUS; do
+  [[ "${!v}" =~ ^[1-9][0-9]*$ ]] || { echo "$v deve essere un intero > 0, non '${!v}'" >&2; exit 2; }
+done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$REPO_ROOT/load/output/$LABEL"

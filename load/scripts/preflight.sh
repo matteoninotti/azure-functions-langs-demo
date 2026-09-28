@@ -5,8 +5,14 @@
 #
 #   ./load/scripts/preflight.sh 1 go      # Metrica 1 o 3: carico, servono 200 istanze
 #   ./load/scripts/preflight.sh 2 python  # Metrica 2 o 4: una richiesta singola
+#   CAP_SCOPE=target ./load/scripts/preflight.sh 3 go   # burst su una sola app
 #
 # Il secondo argomento e' il linguaggio che si sta per misurare.
+#
+# CAP_SCOPE (solo per le Metriche 1 e 3): `all`, il default, vuole il tetto a
+# 200 sulle tre app; `target` lo vuole a 200 solo sull'app da misurare e a 5
+# sulle altre due, cosi' un burst su un solo linguaggio non lascia scoperte le
+# app che non misura. Lo zero su tutte e tre resta richiesto in entrambi i casi.
 #
 # 1. Configurazione di scala delle tre app, letta dalla RISORSA e non dal
 #    Bicep: 2.048 MB e concorrenza HTTP 1 sempre, e per le Metriche 1 e 3
@@ -43,6 +49,11 @@ case "$TARGET" in
   python|dotnet|go) ;;
   *) echo "uso: $0 <1|2|3|4> <python|dotnet|go>  (metrica, linguaggio da misurare)" >&2; exit 2 ;;
 esac
+CAP_SCOPE="${CAP_SCOPE:-all}"
+case "$CAP_SCOPE" in
+  all|target) ;;
+  *) echo "CAP_SCOPE deve essere 'all' o 'target', non '${CAP_SCOPE}'" >&2; exit 2 ;;
+esac
 
 AZ_ERR=$(mktemp)
 trap 'rm -f "$AZ_ERR"' EXIT
@@ -66,9 +77,12 @@ for lang in "${LANGUAGES[@]}"; do
     echo "${app}: memoria o concorrenza diverse da 2048 / 1. Sono fatti bloccati: non si misura." >&2
     failed=1
   fi
-  if [ -n "$WANT_MAX" ] && [ "$max_instances" != "$WANT_MAX" ]; then
-    echo "${app}: maximumInstanceCount e' ${max_instances}, la Metrica ${METRIC} ne vuole ${WANT_MAX}. Prima del run:" >&2
-    echo "  az functionapp scale config set -g ${RESOURCE_GROUP} -n ${app} --maximum-instance-count ${WANT_MAX}" >&2
+  want="$WANT_MAX"
+  # Con CAP_SCOPE=target le app che non si misurano restano al tetto basso.
+  [ -n "$want" ] && [ "$CAP_SCOPE" = target ] && [ "$lang" != "$TARGET" ] && want=5
+  if [ -n "$want" ] && [ "$max_instances" != "$want" ]; then
+    echo "${app}: maximumInstanceCount e' ${max_instances}, la Metrica ${METRIC} (CAP_SCOPE=${CAP_SCOPE}) ne vuole ${want}. Prima del run:" >&2
+    echo "  az functionapp scale config set -g ${RESOURCE_GROUP} -n ${app} --maximum-instance-count ${want}" >&2
     failed=1
   fi
 done

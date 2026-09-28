@@ -22,7 +22,7 @@ Se il job ACA servirà, due impostazioni non sono opzionali:
 |---|---|
 | `scripts/resize.js` | Il generatore di carico per Metrica 1 e Metrica 3. |
 | `scripts/wait-for-zero.sh` | Attende e **verifica** lo zero istanze su un'app. |
-| `scripts/preflight.sh` | I controlli prima di ogni run: configurazione di scala e zero istanze su tutte e tre le app, attese in parallelo, l'app da misurare riconfermata per ultima. |
+| `scripts/preflight.sh` | I controlli prima di ogni run: configurazione di scala e zero istanze su tutte e tre le app, attese in parallelo, l'app da misurare riconfermata per ultima. Con `CAP_SCOPE=target` il tetto a 200 si pretende solo sull'app da misurare, e le altre due devono restare a 5. |
 | `scripts/run-load.sh` | Un run di Metrica 1 o 3 con i parametri definitivi: salva output e riepilogo di k6, le metriche per richiesta in `client.csv.gz` (timestamp in millisecondi, per la curva lato client secondo per secondo), campiona la CPU del generatore, annota `RUN_START`/`RUN_END`/`http_reqs` in `output/runs.tsv`. |
 | `scripts/campaign-load.sh` | La serie di carico: tre ripetizioni di Metrica 3 per linguaggio, con la Metrica 1 subito dopo la prima. |
 | `scripts/load-report.sh` | Lettura della serie di carico run per run: `export-run.sh`, riepilogo, curva al secondo, istanze delle altre app e controllo che nessuna istanza di una Metrica 3 fosse già vista prima della finestra. |

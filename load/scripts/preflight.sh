@@ -6,6 +6,7 @@
 #   ./load/scripts/preflight.sh 1 go      # Metrica 1 o 3: carico, servono 200 istanze
 #   ./load/scripts/preflight.sh 2 python  # Metrica 2 o 4: una richiesta singola
 #   CAP_SCOPE=target ./load/scripts/preflight.sh 3 go   # burst su una sola app
+#   CAP_SCOPE=target OTHER_CAP=20 ./load/scripts/preflight.sh 3 go
 #
 # Il secondo argomento e' il linguaggio che si sta per misurare.
 #
@@ -13,6 +14,8 @@
 # 200 sulle tre app; `target` lo vuole a 200 solo sull'app da misurare e a 5
 # sulle altre due, cosi' un burst su un solo linguaggio non lascia scoperte le
 # app che non misura. Lo zero su tutte e tre resta richiesto in entrambi i casi.
+# OTHER_CAP (solo con `target`, default 5) e' il tetto preteso sulle due app
+# che non si misurano: a zero istanze non occupano quota, qualunque sia.
 #
 # 1. Configurazione di scala delle tre app, letta dalla RISORSA e non dal
 #    Bicep: 2.048 MB e concorrenza HTTP 1 sempre, e per le Metriche 1 e 3
@@ -54,6 +57,8 @@ case "$CAP_SCOPE" in
   all|target) ;;
   *) echo "CAP_SCOPE deve essere 'all' o 'target', non '${CAP_SCOPE}'" >&2; exit 2 ;;
 esac
+OTHER_CAP="${OTHER_CAP:-5}"
+[[ "$OTHER_CAP" =~ ^[1-9][0-9]*$ ]] || { echo "OTHER_CAP deve essere un intero > 0, non '${OTHER_CAP}'" >&2; exit 2; }
 
 AZ_ERR=$(mktemp)
 trap 'rm -f "$AZ_ERR"' EXIT
@@ -78,8 +83,8 @@ for lang in "${LANGUAGES[@]}"; do
     failed=1
   fi
   want="$WANT_MAX"
-  # Con CAP_SCOPE=target le app che non si misurano restano al tetto basso.
-  [ -n "$want" ] && [ "$CAP_SCOPE" = target ] && [ "$lang" != "$TARGET" ] && want=5
+  # Con CAP_SCOPE=target le app che non si misurano restano a OTHER_CAP.
+  [ -n "$want" ] && [ "$CAP_SCOPE" = target ] && [ "$lang" != "$TARGET" ] && want="$OTHER_CAP"
   if [ -n "$want" ] && [ "$max_instances" != "$want" ]; then
     echo "${app}: maximumInstanceCount e' ${max_instances}, la Metrica ${METRIC} (CAP_SCOPE=${CAP_SCOPE}) ne vuole ${want}. Prima del run:" >&2
     echo "  az functionapp scale config set -g ${RESOURCE_GROUP} -n ${app} --maximum-instance-count ${want}" >&2

@@ -6,15 +6,10 @@ Con un modello a utenti virtuali (Locust, JMeter) il backend più lento ricevere
 
 ## Come si usa
 
-- **Iterazione e messa a punto** → k6 in locale dal Mac. Zero costo, ma la latenza di rete domestica entra nella misura client-side (~34 ms di RTT verso Italy North, misurati in D53). Questo è deciso.
-- **Numeri che finiscono nelle slide** → **ancora da decidere in Fase 7 (D59)**: Mac o **Azure Container Apps Job** in Italy North.
+- **Iterazione e messa a punto** → k6 in locale dal Mac. Zero costo, ma la latenza di rete domestica entra nella misura client-side (~34 ms di RTT verso Italy North, misurati in D53).
+- **Numeri che finiscono nelle slide** → **k6 in locale dal Mac**, deciso durante i run finali (D131): CPU del processo k6 al massimo al 34% di un core, 10,0 richieste al secondo ottenute su 10 richieste, zero `dropped_iterations`, e sul run più pesante tutta l'attesa sta in `http_req_waiting`, cioè lato Azure.
 
-⚠️ Questa riga diceva "numeri finali → ACA Job" come se fosse deciso. Non lo è: l'ACA Job era stato promosso sulla base di ~765 ms che sembravano latenza di rete e invece erano cold start (D53 corregge D48), e caduta la premessa la decisione è tornata aperta. Va presa **a parametri congelati**, misurando se il Mac regge il tasso finale senza diventare lui il collo di bottiglia — e la misura non è `dropped_iterations`, che il cold start del backend confonde: servono VU fissi e abbondanti, CPU locale osservata, e tasso ottenuto contro tasso richiesto (D59).
-
-Se il job ACA servirà, due impostazioni non sono opzionali:
-
-- **`replicaRetryLimit` a 0.** I job presuppongono i retry: se un load test fallisce a metà e riparte, si genera carico due volte e i numeri sono spazzatura.
-- **`replicaTimeout`** dimensionato sulla durata realistica del test più margine — allo scadere il job viene terminato.
+⚠️ Questa sezione dava la scelta fra il Mac e un **Azure Container Apps Job** in Italy North come ancora da decidere (D59), e prima ancora dava l'ACA Job per deciso. L'hanno chiusa i run finali (D131): il Mac non è stato il collo di bottiglia, quindi l'ACA Job non serve e non c'è.
 
 ## Struttura
 
@@ -34,7 +29,7 @@ Se il job ACA servirà, due impostazioni non sono opzionali:
 | `scripts/check-alerts.sh` | Elenca gli alert di Azure Monitor scattati dopo un istante: esce 0 se non ce ne sono, 1 se ce ne sono, 2 se la domanda non ha avuto risposta. |
 | `scripts/export-run.sh` | Dopo ogni run: esporta le righe grezze della finestra e verifica che contenga esattamente le richieste del run. |
 | `scripts/runtime-snapshot.sh` | Inizio e fine campagna: registra e confronta il runtime dichiarato dai tre worker. |
-| `results/` | Solo i run che finiscono nelle slide, committati esplicitamente. Il resto va in `output/`, che è gitignorato. **Mai le righe grezze di `export-run.sh`**: contengono dati sul client (per esempio `ClientCity`), e il repo è pubblico. In `results/` vanno i riepiloghi. |
+| `output/` | L'output di tutti i run, gitignorato: i numeri stanno nelle slide del talk, non nel repo. **Mai committare le righe grezze di `export-run.sh`**: contengono dati sul client (per esempio `ClientCity`), e il repo è pubblico. |
 
 **Uno script per due metriche, non uno per metrica.** Metrica 1 e Metrica 3 usano la stessa forma di carico — tasso costante — e differiscono per lo stato dell'app quando il carico arriva (calda contro zero istanze) e per come si leggono i risultati, non per cosa fa il generatore. Due file identici da tenere allineati a mano sarebbero due occasioni di farli divergere.
 

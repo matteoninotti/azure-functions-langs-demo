@@ -11,7 +11,7 @@ Cosa c'è dentro:
 - Application Insights + Log Analytics, con il **sampling disattivato** (D14).
 - **Static Web App**, in East US 2 perché il tipo di risorsa non esiste in Italy North (D93), con la sua origine in allowlist CORS sulle tre function app (D12).
 
-Ancora da costruire: il Container Apps Environment per il job k6, **se** servirà (D59 — da decidere dopo la taratura).
+Nessun Container Apps Environment: il generatore di carico è k6 dal Mac, deciso nei run finali (D131).
 
 ```
 az deployment group create -g rg-torinodotnet-demo --template-file infra/main.bicep

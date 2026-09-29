@@ -35,8 +35,8 @@ node_modules/
 *.bicepparam.local
 .azure/
 
-# Risultati dei run di carico (rigenerabili; quelli che finiscono in slide
-# vanno committati esplicitamente in load/results/)
+# Risultati dei run di carico (rigenerabili; i numeri stanno nelle slide,
+# non nel repo)
 load/output/
 
 # Immagini di test: restano solo in locale e vengono iniettate nel pacchetto

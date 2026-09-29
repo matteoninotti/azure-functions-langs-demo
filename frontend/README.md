@@ -2,6 +2,8 @@
 
 Pubblicato su **https://lemon-beach-0a298dc0f.5.azurestaticapps.net**
 
+⚠️ Raggiungibile solo fino al talk del 30 settembre 2026: dopo, le risorse Azure vengono spente e la pagina smette di rispondere.
+
 Il frontend è **fisso**: non cambia tra i linguaggi, cambia solo il backend che chiama. Manda la stessa richiesta a tutti e tre i worker e mostra i tre risultati affiancati (D88).
 
 HTML + JS senza framework, tre file e nessuno step di build: la SWA serve file statici e la pagina fa quattro `fetch` in croce.

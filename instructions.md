@@ -229,9 +229,7 @@ Dalla [tabella Billing](https://learn.microsoft.com/en-us/azure/azure-functions/
 - **Iterazione e messa a punto** → **k6 in locale** dal Mac. Questo è deciso.
 - **Numeri finali per le slide** → **k6 in locale dal Mac**, non in un [Azure Container Apps Job](https://learn.microsoft.com/en-us/azure/container-apps/jobs). Verificato durante i run finali (D131): CPU del processo k6 al massimo 34%, tasso ottenuto 10,0/s su 10 richiesti, zero `dropped_iterations`, e sul run più pesante tutta l'attesa sta in `http_req_waiting`, cioè lato Azure.
 
-⚠️ **Questa sezione diceva "DECISO: ACA Job", e non lo è.** L'ACA Job era stato promosso a `[M]` sulla base di ~765 ms che sembravano latenza di rete e non lo erano: **erano cold start** (D53 corregge D48, RTT Mac↔Italy North misurato ~34 ms). Caduta la premessa, il task è tornato `[S]` e la decisione è rinviata a Fase 7 **a parametri congelati** (D59): la domanda è se il Mac regga il tasso finale senza diventare lui il collo di bottiglia, e quel tasso non esisteva finché i tre worker non erano misurati. Deciderlo prima ripeterebbe l'errore di D50 e D53. Dato parziale: a 50 req/s con 500 VU il Mac ha retto senza una `dropped_iteration` (D57), ma la misura che conta non è quella — servono VU fissi e abbondanti, CPU locale osservata, e tasso ottenuto contro tasso richiesto.
-
-Se l'ACA Job servirà, due impostazioni non sono opzionali: `replicaRetryLimit` a **0** (un load test che riparte a metà genera carico due volte) e `replicaTimeout` dimensionato sulla durata realistica del test più margine.
+⚠️ **Questa sezione diceva "DECISO: ACA Job", e non lo è.** L'ACA Job era stato promosso a `[M]` sulla base di ~765 ms che sembravano latenza di rete e non lo erano: **erano cold start** (D53 corregge D48, RTT Mac↔Italy North misurato ~34 ms). Caduta la premessa, il task è tornato `[S]` e la decisione è rinviata a Fase 7 **a parametri congelati** (D59): la domanda è se il Mac regga il tasso finale senza diventare lui il collo di bottiglia, e quel tasso non esisteva finché i tre worker non erano misurati. Deciderlo prima ripeterebbe l'errore di D50 e D53. Dato parziale: a 50 req/s con 500 VU il Mac ha retto senza una `dropped_iteration` (D57), ma la misura che conta non è quella — servono VU fissi e abbondanti, CPU locale osservata, e tasso ottenuto contro tasso richiesto. **Chiusa in Fase 7 (D131)**: con quelle misure il Mac ha retto, quindi l'ACA Job non serve e non c'è (vedi sopra).
 
 **Perché k6 e non Locust/JMeter su Azure Load Testing — scelta metodologica, non di gusto.**
 
@@ -247,8 +245,8 @@ Motivo secondario e dirimente: [Azure Load Testing non supporta framework divers
 
 | Opzione | Pro | Contro |
 |---|---|---|
-| k6 locale dal Mac | Zero costo, iterazione istantanea | Latenza di rete nella misura client-side; banda upstream domestica; il Mac può diventare collo di bottiglia |
-| **k6 in ACA Job** (scelto) | Latenza trascurabile, banda alta, riproducibile, pagato al secondo solo durante il run, `parallelism` nativo, storico esecuzioni | Serve un Container Apps Environment; log via Log Analytics; retry e timeout da configurare |
+| **k6 locale dal Mac** (scelto, D131) | Zero costo, iterazione istantanea | Latenza di rete nella misura client-side; banda upstream domestica; il Mac può diventare collo di bottiglia (verificato che non lo è stato, D131) |
+| k6 in ACA Job (scartato, D131) | Latenza trascurabile, banda alta, riproducibile, pagato al secondo solo durante il run, `parallelism` nativo, storico esecuzioni | Serve un Container Apps Environment; log via Log Analytics; retry e timeout da configurare |
 | Container semplice (ACI) | Più immediato per un run singolo | Nessun `parallelism` orchestrato; va cancellato a mano; peggiore per run ripetuti |
 | Azure Load Testing | Managed, dashboard, metriche Azure integrate, multi-region | Solo JMeter e Locust; addebito minimo per run |
 | Script sequenziale + App Insights | Zero infra, elimina la rete dalla misura | Non è un load test. *Va bene però per la Metrica 2.* |
@@ -319,9 +317,8 @@ Tre formulazioni ufficiali convergono ma non chiudono la questione:
 ### Budget — €20 massimo
 - **Azure Functions**: il free grant mensile per sottoscrizione è indicato sulla [pagina pricing](https://azure.microsoft.com/en-us/pricing/details/functions/) (250.000 esecuzioni e 100.000 GB-s in on-demand, al momento della verifica). **Il margine non è più comodo come sembrava**: con `count=80` il worker Go impiega ~5,2s per richiesta, e la campagna di misura completa è stimata intorno ai 57.000 GB-s, cioè oltre metà del grant (D89). Va controllato a ogni giro, non dato per scontato.
 - **Prezzo al GB-secondo oltre il grant: €0,000023/GB-s** in Italy North, letto sulla [pagina prezzi](https://azure.microsoft.com/it-it/pricing/details/functions/) il 2026-09-24 ($0,000026/GB-s). *Corregge* la voce precedente, che lo dava come fonte non trovata: l'[API dei prezzi retail](https://prices.azure.com/api/retail/prices) restituisce i meter di Flex Consumption a `0.0`, e la pagina letta a mano è l'unica fonte. 100.000 GB-s oltre il grant costerebbero €2,30. ⚠️ La stessa pagina dice che *"le concessioni gratuite si applicano solo ai contatori su richiesta per le sottoscrizioni a pagamento a consumo"*, e questa sottoscrizione è una Free Trial. **Verificato che qui si applica**, fino a dove ci si è arrivati: [Cost Management](https://learn.microsoft.com/en-us/rest/api/cost-management/query/usage) riporta per "On Demand Execution Time" 23.563,8 GB-s a settembre con costo €0,00, mentre altri consumi a pagamento della stessa sottoscrizione compaiono con il loro costo (D133). Oltre i 100.000 GB-s non è verificato. La stessa fonte conferma la nostra contabilità: la quantità giornaliera coincide al GB-s con la somma di `OnDemandFunctionExecutionUnits`.
-- **ACA Job**: piano Consumption, pagato al secondo solo durante l'esecuzione.
 - **Azure Load Testing** (solo per l'eventuale run dimostrativo): ⚠️ **URL DELLA PAGINA PRICING DA SALVARE**. Dati raccolti finora: nessun canone mensile sulla risorsa (la fee di $10/mese è stata rimossa), $0,15/VUH fino a 10.000 VUH mensili, e un addebito minimo per run introdotto dal 1° marzo 2026. **Da riverificare sulla pagina ufficiale prima di usarli.**
-- **Regola operativa**: iterare con k6 locale. Se l'ACA Job servirà (D59, ancora da decidere), usarlo solo per i run che finiranno nelle slide.
+- **Regola operativa**: k6 in locale dal Mac, sia per iterare sia per i run che finiscono nelle slide (D131). Niente ACA Job, quindi niente costo di generazione del carico.
 
 ---
 
@@ -400,6 +397,7 @@ Tutti da [Go developer reference](https://learn.microsoft.com/en-us/azure/azure-
 
 ### Strumenti di test
 - **Azure Load Testing supporta solo JMeter e Locust** ([fonte](https://learn.microsoft.com/en-us/azure/app-testing/load-testing/overview-what-is-azure-load-testing)).
+- *Le tre righe sull'ACA Job restano come riferimento: il progetto non lo usa (D131).*
 - **ACA Job: impostare `replicaRetryLimit` a 0.** I job presuppongono i retry; se un load test fallisce parzialmente e riparte, si genera carico due volte.
 - **ACA Job: dimensionare `replicaTimeout`** sulla durata realistica del test più margine — allo scadere il job viene terminato ([fonte](https://learn.microsoft.com/en-us/azure/container-apps/jobs)).
 - **ACA Job richiede un Container Apps Environment**; i log passano da Log Analytics.

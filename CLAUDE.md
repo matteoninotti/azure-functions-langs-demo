@@ -37,11 +37,11 @@ Se `instructions.md` e il log dicono cose diverse, **vince il log** — ed è il
 - **Il deploy parte solo da `main` (D44, D111).** Il job di deploy passa dall'environment GitHub `production`, che ammette solo `main` e si ferma in attesa dell'approvazione di Matteo prima di ogni deploy. La credenziale federata OIDC del job è registrata sul subject di quell'environment. Un `workflow_dispatch` lanciato da un branch di fase non deploya: lo ferma la branch policy dell'environment o, se il workflow di quel branch non referenzia l'environment, l'autenticazione OIDC. Per deployare il codice di una fase, prima si porta su `main` — con il merge esplicito richiesto dalla riga sopra.
 - **Ogni modifica alle slide si propaga a tutti i documenti che le descrivono, nello stesso passo.** Il deck vive in `presentazione/presentazione.key` e si modifica lì. Quando una slide viene aggiunta, tolta, spostata o cambia testo, prima di chiudere il passo si aggiornano:
   - i numeri di pagina nel `.key`;
-  - `presentazione/slides.md`: titoli numerati, testo di ogni slide allineato al deck, rimandi "slide N" nelle fonti. Per le slide nuove si scrive solo il testo, mai le note: le note sono di Matteo;
   - `presentazione/da-decidere.md`;
   - nel vault, ogni appunto che cita un numero di slide: i marcatori `[slide N]` del parlato e le checklist degli appunti. Si trovano con una ricerca di `slide N` nella cartella del progetto nel vault, non a memoria.
 
   Ogni riferimento spostato va ricontrollato sul contenuto: il numero nuovo deve puntare alla slide che parla davvero di quell'argomento. Poi la modifica si registra nel decision log.
+- **Il parlato sta in due posti che restano identici: `presentaz.md` nel vault e le note del presentatore nel `.key`.** Il testo di ogni `[slide N]` di `presentaz.md` è la nota della slide N. Chi modifica l'uno aggiorna l'altro nello stesso passo, e lo verifica rileggendo le note dal deck. Il parlato è di Matteo: si scrive o si cambia solo su sua richiesta, e le slide scritte o completate da Claude portano la `c` nel tag (`[slide 39c]`).
 
 ## Fatti bloccati (dettagli e motivazioni nel log)
 

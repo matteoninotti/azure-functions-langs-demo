@@ -1,8 +1,6 @@
 # Frontend (Azure Static Web App)
 
-Pubblicato su **https://lemon-beach-0a298dc0f.5.azurestaticapps.net**
-
-⚠️ Raggiungibile solo fino al talk del 30 settembre 2026: dopo, le risorse Azure vengono spente e la pagina smette di rispondere.
+⚠️ Non è pubblicato: dopo il talk del 30 settembre 2026 le risorse Azure sono state spente, Static Web App compresa. Una Static Web App ricreata riceve un indirizzo nuovo, che si legge dall'output `frontendHostName` del deploy del Bicep (Fase 9 di `TODO.md`).
 
 Il frontend è **fisso**: non cambia tra i linguaggi, cambia solo il backend che chiama. Manda la stessa richiesta a tutti e tre i worker e mostra i tre risultati affiancati (D88).
 

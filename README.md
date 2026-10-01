@@ -2,7 +2,7 @@
 
 Materiale della demo per il talk **TorinoDotNet del 30 settembre 2026 @ Toolbox**: stesso endpoint HTTP di image resizing implementato in **Python, .NET e Go**, deployato su **Azure Functions Flex Consumption**, misurato con k6 e Application Insights per confrontare **performance e costi**.
 
-⚠️ Le risorse Azure della demo restano accese solo per il talk: dopo il 30 settembre 2026 vengono spente, e gli endpoint e il frontend smettono di rispondere.
+⚠️ Dopo il talk del 30 settembre 2026 le risorse Azure della demo sono state spente: gli endpoint e il frontend non rispondono più. Per rimetterle su si segue la Fase 9 di `TODO.md`.
 
 ## L'esperimento
 

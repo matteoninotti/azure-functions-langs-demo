@@ -1,6 +1,6 @@
 # dotnet_lambda — note operative per Claude
 
-Demo + talk (45–60 min, pubblico IT professionale, meetup TorinoDotNet) che confronta **performance e costi di Azure Functions tra Python, .NET e Go** su un workload CPU-bound di image resizing, sul piano **Flex Consumption**. Repo pubblico su GitHub come `torinodotnet-azure-functions-meetup-demo`.
+Demo + talk (45–60 min, pubblico IT professionale, meetup TorinoDotNet) che confronta **performance e costi di Azure Functions tra Python, .NET e Go** su un workload CPU-bound di image resizing, sul piano **Flex Consumption**. Repo pubblico su GitHub come `azure-functions-langs-demo`.
 
 > Questo file è un puntatore sottile + le poche regole che servono per lavorare nel repo. La sostanza sta negli altri due documenti.
 

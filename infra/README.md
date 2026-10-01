@@ -18,7 +18,7 @@ Nessun Container Apps Environment: il generatore di carico è k6 dal Mac, deciso
 az deployment group create -g rg-torinodotnet-demo --template-file infra/main.bicep --parameters alertEmail=<indirizzo>
 ```
 
-`alertEmail` non ha default e non sta nel repo: è il destinatario dell'action group dei consumi. Dopo il primo deploy l'indirizzo va confermato con il codice OTP entro 30 minuti ([action groups](https://learn.microsoft.com/en-us/azure/azure-monitor/alerts/action-groups)).
+`alertEmail` non ha default e non sta nel repo: è il destinatario dell'action group dei consumi. Un indirizzo mai verificato nel tenant va confermato con il codice OTP entro 30 minuti dal deploy; la verifica vale poi per tutti gli action group del tenant ([action groups](https://learn.microsoft.com/en-us/azure/azure-monitor/alerts/action-groups)).
 
 ⚠️ Un deploy dell'infrastruttura **scrive su tutte e tre le app**, anche quelle che non stai cambiando (D72): non va lanciato nel mezzo di una campagna di misura.
 

@@ -10,12 +10,15 @@ Cosa c'è dentro:
 - Instance size **2.048 MB** su tutte e tre, concorrenza HTTP **1**, `http20Enabled` **false**.
 - Application Insights + Log Analytics, con il **sampling disattivato** (D14).
 - **Static Web App**, in East US 2 perché il tipo di risorsa non esiste in Italy North (D93), con la sua origine in allowlist CORS sulle tre function app (D12).
+- **Protezione dai consumi**: un action group, due regole per app su `OnDemandFunctionExecutionUnits` (oltre 1.000 GB-s in 5 minuti, oltre 10.000 GB-s in 6 ore) e un lock `CanNotDelete` sul resource group. Il lock va tolto prima dello spegnimento: `az lock delete --name protezione-pre-talk -g rg-torinodotnet-demo`. Crearlo richiede Owner o User Access Administrator ([chi può creare i lock](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/lock-resources#who-can-create-or-delete-locks)), per questo il Bicep si lancia a mano e non dalla pipeline.
 
 Nessun Container Apps Environment: il generatore di carico è k6 dal Mac, deciso nei run finali (D131).
 
 ```
-az deployment group create -g rg-torinodotnet-demo --template-file infra/main.bicep
+az deployment group create -g rg-torinodotnet-demo --template-file infra/main.bicep --parameters alertEmail=<indirizzo>
 ```
+
+`alertEmail` non ha default e non sta nel repo: è il destinatario dell'action group dei consumi. Un indirizzo mai verificato nel tenant va confermato con il codice OTP entro 30 minuti dal deploy; la verifica vale poi per tutti gli action group del tenant ([action groups](https://learn.microsoft.com/en-us/azure/azure-monitor/alerts/action-groups)).
 
 ⚠️ Un deploy dell'infrastruttura **scrive su tutte e tre le app**, anche quelle che non stai cambiando (D72): non va lanciato nel mezzo di una campagna di misura.
 

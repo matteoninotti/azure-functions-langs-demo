@@ -6,7 +6,8 @@
 //
 //   az deployment group create \
 //     --resource-group rg-torinodotnet-demo \
-//     --template-file infra/main.bicep
+//     --template-file infra/main.bicep \
+//     --parameters alertEmail=<indirizzo>
 
 targetScope = 'resourceGroup'
 
@@ -247,6 +248,134 @@ module worker 'worker.bicep' = [
     ]
   }
 ]
+
+// --- Protezione dai consumi -------------------------------------------------
+// Un action group e due regole per app sui GB-s fatturati, piu' un lock contro
+// la cancellazione del resource group (D113, D116, D119). Le regole avvisano,
+// non fermano: la protezione che limita davvero il consumo e' il tetto di
+// istanze a 5 fuori dalle finestre di misura, impostato da CLI
+// (load/scripts/postflight.sh). Su una sottoscrizione Free Trial le regole
+// scattano ma la mail non arriva (D122).
+
+@description('Indirizzo email dell\'action group dei consumi. Senza default e fuori dal repo: si passa al deploy.')
+param alertEmail string
+
+resource consumptionActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${namePrefix}-consumo'
+  location: 'global'
+  properties: {
+    groupShortName: 'consumo'
+    enabled: true
+    emailReceivers: [
+      {
+        name: 'matteo'
+        emailAddress: alertEmail
+      }
+    ]
+  }
+}
+
+// OnDemandFunctionExecutionUnits e' in MB-ms: diviso 1.024.000 da' i GB-s
+// (https://learn.microsoft.com/en-us/azure/azure-functions/monitor-functions-reference?tabs=flex-consumption-plan).
+// Regola veloce: oltre 1.000 GB-s in 5 minuti, valutata ogni minuto. Le soglie
+// vengono dai dati di settembre: ogni run di carico la supera, demo e
+// richieste singole no (D113).
+resource consumptionAlertsFast 'Microsoft.Insights/metricAlerts@2018-03-01' = [
+  for (w, i) in workers: {
+    name: 'consumo-${namePrefix}-${w.language}'
+    location: 'global'
+    properties: {
+      description: 'Oltre 1.000 GB-s di esecuzione on demand in 5 minuti su ${namePrefix}-${w.language} (OnDemandFunctionExecutionUnits in MB-ms / 1.024.000). Ogni run di carico lo supera, demo e richieste singole no.'
+      severity: 2
+      enabled: true
+      scopes: [
+        resourceId('Microsoft.Web/sites', worker[i].outputs.appName)
+      ]
+      evaluationFrequency: 'PT1M'
+      windowSize: 'PT5M'
+      autoMitigate: true
+      criteria: {
+        'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+        allOf: [
+          {
+            criterionType: 'StaticThresholdCriterion'
+            name: 'consumo-5-minuti'
+            metricNamespace: 'Microsoft.Web/sites'
+            metricName: 'OnDemandFunctionExecutionUnits'
+            timeAggregation: 'Total'
+            operator: 'GreaterThan'
+            threshold: 1024000000
+          }
+        ]
+      }
+      actions: [
+        {
+          actionGroupId: consumptionActionGroup.id
+        }
+      ]
+    }
+  }
+]
+
+// Regola lenta: oltre 10.000 GB-s in 6 ore, valutata ogni 15 minuti. Copre il
+// consumo sostenuto che a tetto 5 resta sotto la regola veloce (D119, R2).
+resource consumptionAlertsSlow 'Microsoft.Insights/metricAlerts@2018-03-01' = [
+  for (w, i) in workers: {
+    name: 'consumo-lento-${namePrefix}-${w.language}'
+    location: 'global'
+    properties: {
+      description: 'Oltre 10.000 GB-s di esecuzione on demand in 6 ore su ${namePrefix}-${w.language}: consumo sostenuto sotto la soglia della regola a 5 minuti.'
+      severity: 2
+      enabled: true
+      scopes: [
+        resourceId('Microsoft.Web/sites', worker[i].outputs.appName)
+      ]
+      evaluationFrequency: 'PT15M'
+      windowSize: 'PT6H'
+      autoMitigate: true
+      criteria: {
+        'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+        allOf: [
+          {
+            criterionType: 'StaticThresholdCriterion'
+            name: 'consumo-6-ore'
+            metricNamespace: 'Microsoft.Web/sites'
+            metricName: 'OnDemandFunctionExecutionUnits'
+            timeAggregation: 'Total'
+            operator: 'GreaterThan'
+            // Oltre il massimo di un intero a 32 bit: va bene qui, perche' gli interi
+            // Bicep sono a 64 bit e la soglia e' scritta nel template, non passata
+            // come parametro inline
+            // (https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/data-types).
+            threshold: 10240000000
+          }
+        ]
+      }
+      actions: [
+        {
+          actionGroupId: consumptionActionGroup.id
+        }
+      ]
+    }
+  }
+]
+
+// Senza scope esplicito il lock si applica al resource group del deploy
+// (https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-at-deployment-scope).
+// Blocca la cancellazione delle risorse, non quella dei dati: i blob di
+// test-images restano cancellabili (D119, R4). Per lo spegnimento va tolto
+// prima: az lock delete --name protezione-pre-talk -g rg-torinodotnet-demo.
+// Crearlo richiede Microsoft.Authorization/locks/*, che hanno Owner e User
+// Access Administrator
+// (https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/lock-resources#who-can-create-or-delete-locks):
+// il Bicep si lancia a mano con un utente Owner, non dalla pipeline.
+resource deleteLock 'Microsoft.Authorization/locks@2020-05-01' = {
+  name: 'protezione-pre-talk'
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protegge la demo dalla cancellazione accidentale. Va tolto prima dello spegnimento.'
+  }
+}
 
 output storageAccountName string = storage.name
 output testImagesContainerName string = testImagesContainerName
